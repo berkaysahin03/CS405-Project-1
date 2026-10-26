@@ -6,26 +6,71 @@
  */
 import { todo } from './todo.js';
 
-/** a + b */
-export function add(a, b) { return todo('vec3.add'); }
+/** @typedef {[number, number, number]} Vec3 */
 
-/** a − b */
-export function sub(a, b) { return todo('vec3.sub'); }
+/** a + b
+ * @param {Vec3} a
+ * @param {Vec3} b
+ * @returns {Vec3}
+ */
+export function add(a, b) {
+    return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+}
 
-/** s · a  (s is a number) */
-export function scale(a, s) { return todo('vec3.scale'); }
+/** a − b
+ * @param {Vec3} a
+ * @param {Vec3} b
+ * @returns {Vec3}
+ */
+export function sub(a, b) {
+    return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+}
 
-/** a · b  → number */
-export function dot(a, b) { return todo('vec3.dot'); }
+/** s · a  (s is a number)
+ * @param {Vec3} a
+ * @param {number} s
+ * @returns {Vec3}
+ */
+export function scale(a, s) {
+    return [s * a[0], s * a[1], s * a[2]]
+}
 
-/** a × b  (right-handed: cross([1,0,0],[0,1,0]) = [0,0,1]) */
-export function cross(a, b) { return todo('vec3.cross'); }
+/** a · b  → number
+ * @param {Vec3} a
+ * @param {Vec3} b
+ * @returns {number}
+ */
+export function dot(a, b) {
+    return a.map((v, i) => v * b[i]).reduce((acc, v) => acc + v)
+}
 
-/** |a|  → number */
-export function length(a) { return todo('vec3.length'); }
+/** a × b  (right-handed: cross([1,0,0],[0,1,0]) = [0,0,1])
+ * @param {Vec3} a
+ * @param {Vec3} b
+ * @returns {Vec3}
+ */
+export function cross(a, b) {
+    return [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0]
+    ]
+}
+
+/** |a|  → number
+ * @param {Vec3} a
+ * @returns {number}
+ */
+export function length(a) { return Math.sqrt(dot(a, a)); }
 
 /**
  * a / |a|.
  * For a zero-length vector return [0, 0, 0] — never NaN.
+ * @param {Vec3} a
+ * @returns {Vec3}
  */
-export function normalize(a) { return todo('vec3.normalize'); }
+export function normalize(a) {
+    let len = length(a)
+    if (len == 0) return [0, 0, 0]
+    return scale(a, 1 / len);
+}
