@@ -188,9 +188,6 @@ export function invertRigid(m) {
  * @returns {Vec4}
 */
 export function transformVec4(m, v) {
-  /** @type {Vec4} */
-  let res = [0, 0, 0, 0]
-
   let mr = [
     m.filter((_, i) => i % 4 == 0),
     m.filter((_, i) => i % 4 == 1),
@@ -200,12 +197,7 @@ export function transformVec4(m, v) {
 
   /** @type {function(Float32Array, Vec4): number} */
   let dot = (a, b) => a.map((v, i) => v * b[i]).reduce((acc, v) => acc + v)
-
-  for (let i = 0; i < 4; i++) {
-    res[i] = dot(mr[i], v)
-  }
-
-  return res
+  return /** @type {Vec4} */ (mr.map(mri => dot(mri, v))) 
 }
 
 /* ------------------------------------------------------------- Part C ---- */
