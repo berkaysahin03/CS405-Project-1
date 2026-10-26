@@ -21,38 +21,192 @@ import { todo } from './todo.js';
 
 /* ------------------------------------------------------------- Part A ---- */
 
-/** The 4×4 identity. */
-export function identity() { return todo('mat4.identity'); }
+/**
+ * @typedef {[number, number, number]} Vec3
+ * @typedef {[number, number, number, number]} Vec4
+ * @typedef {Float32Array} Mat4
+ * @typedef {number} Radians
+ */
 
-/** A · B (apply B first, then A). Must not modify a or b. */
-export function multiply(a, b) { return todo('mat4.multiply'); }
+/**
+ * The 4×4 identity.
+ * @returns {Mat4}
+ */
+export function identity() {
+  return new Float32Array([
+    1, 0, 0, 0,
+    0, 1, 0, 0,
+    0, 0, 1, 0,
+    0, 0, 0, 1,
+  ])
+}
 
-/** Translation by (tx, ty, tz). */
-export function translate(tx, ty, tz) { return todo('mat4.translate'); }
+/** A · B (apply B first, then A). Must not modify a or b.
+ * @param {Mat4} a
+ * @param {Mat4} b
+ * @returns {Mat4}
+*/
+export function multiply(a, b) {
+  let res = new Float32Array(16)
 
-/** Rotation by `rad` about the x axis. */
-export function rotateX(rad) { return todo('mat4.rotateX'); }
+  let ar = [
+    a.filter((_, i) => i % 4 == 0),
+    a.filter((_, i) => i % 4 == 1),
+    a.filter((_, i) => i % 4 == 2),
+    a.filter((_, i) => i % 4 == 3)
+  ]
 
-/** Rotation by `rad` about the y axis. */
-export function rotateY(rad) { return todo('mat4.rotateY'); }
+  let bc = [
+    b.slice(0, 4),
+    b.slice(4, 8),
+    b.slice(8, 12),
+    b.slice(12, 16)
+  ]
 
-/** Rotation by `rad` about the z axis. */
-export function rotateZ(rad) { return todo('mat4.rotateZ'); }
+  /** @type {function(Float32Array, Float32Array): number} */
+  let dot = (a, b) => a.map((v, i) => v * b[i]).reduce((acc, v) => acc + v)
 
-/** Non-uniform scale by (sx, sy, sz). */
-export function scale(sx, sy, sz) { return todo('mat4.scale'); }
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      res[j * 4 + i] = dot(ar[i], bc[j])
+    } 
+  }
 
-/** Mᵀ */
-export function transpose(m) { return todo('mat4.transpose'); }
+  return res;
+}
+
+/** Translation by (tx, ty, tz).
+ * @param {number} tx
+ * @param {number} ty
+ * @param {number} tz
+ * @returns {Mat4} 
+*/
+export function translate(tx, ty, tz) {
+  return new Float32Array([
+    1,  0,  0,  0,
+    0,  1,  0,  0,
+    0,  0,  1,  0,
+    tx, ty, tz, 1,
+  ])
+}
+
+let sin = Math.sin
+let cos = Math.cos
+
+/** Rotation by `rad` about the x axis.
+ * @param {Radians} rad
+ * @returns {Mat4} 
+*/
+export function rotateX(rad) {
+  return new Float32Array([
+    1,         0,        0, 0,
+    0,  cos(rad), sin(rad), 0,
+    0, -sin(rad), cos(rad), 0,
+    0,         0,        0, 1,
+  ])
+}
+
+/** Rotation by `rad` about the y axis.
+ * @param {Radians} rad
+ * @returns {Mat4} 
+*/
+export function rotateY(rad) {
+  return new Float32Array([
+    cos(rad), 0, -sin(rad), 0,
+    0,        1,         0, 0,
+    sin(rad), 0,  cos(rad), 0,
+    0,        0,         0, 1,
+  ])
+}
+
+/** Rotation by `rad` about the z axis.
+ * @param {Radians} rad
+ * @returns {Mat4} 
+*/
+export function rotateZ(rad) {
+  return new Float32Array([
+     cos(rad), sin(rad), 0, 0,
+    -sin(rad), cos(rad), 0, 0,
+            0,        0, 1, 0,
+            0,        0, 0, 1,
+  ])
+}
+
+/** Non-uniform scale by (sx, sy, sz).
+ * @param {number} sx
+ * @param {number} sy
+ * @param {number} sz
+ * @returns {Mat4} 
+*/
+export function scale(sx, sy, sz) {
+  return new Float32Array([
+    sx, 0, 0, 0,
+    0, sy, 0, 0,
+    0, 0, sz, 0,
+    0, 0, 0, 1,
+  ])
+}
+
+/** Mᵀ
+ * @param {Mat4} m
+ * @returns {Mat4} 
+*/
+export function transpose(m) {
+  let res = new Float32Array(16)
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      res[i * 4 + j] = m[j * 4 + i]
+    }
+  } 
+  return res;
+}
 
 /**
  * Inverse of a RIGID transform M = T·R (rotation + translation only, no scale).
  * Do not write a general 4×4 inverse: use the structure (Week 3).
+ * @param {Mat4} m
+ * @returns {Mat4} 
  */
-export function invertRigid(m) { return todo('mat4.invertRigid'); }
+export function invertRigid(m) {
+  let R = Float32Array.from(m)
+  R[12] = R[13] = R[14] = 0
+  let Rtran = transpose(R)
 
-/** M · v for a 4-component v = [x, y, z, w]; returns [x', y', z', w']. */
-export function transformVec4(m, v) { return todo('mat4.transformVec4'); }
+  /** @type {Vec4} */
+  let t = [m[12], m[13], m[14], 1]
+  let Rtrant = transformVec4(Rtran, t)
+
+  Rtran[12] = -Rtrant[0]
+  Rtran[13] = -Rtrant[1]
+  Rtran[14] = -Rtrant[2]
+  return Rtran;
+}
+
+/** M · v for a 4-component v = [x, y, z, w]; returns [x', y', z', w'].
+ * @param {Mat4} m
+ * @param {Vec4} v
+ * @returns {Vec4}
+*/
+export function transformVec4(m, v) {
+  /** @type {Vec4} */
+  let res = [0, 0, 0, 0]
+
+  let mr = [
+    m.filter((_, i) => i % 4 == 0),
+    m.filter((_, i) => i % 4 == 1),
+    m.filter((_, i) => i % 4 == 2),
+    m.filter((_, i) => i % 4 == 3)
+  ]
+
+  /** @type {function(Float32Array, Vec4): number} */
+  let dot = (a, b) => a.map((v, i) => v * b[i]).reduce((acc, v) => acc + v)
+
+  for (let i = 0; i < 4; i++) {
+    res[i] = dot(mr[i], v)
+  }
+
+  return res
+}
 
 /* ------------------------------------------------------------- Part C ---- */
 
