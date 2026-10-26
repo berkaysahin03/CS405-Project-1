@@ -18,7 +18,7 @@ import { PAINTINGS, DEFAULT_PAINTING, paintingURL } from './config.js';
 import * as mat4 from './math/mat4.js';
 
 async function main() {
-  const canvas = document.getElementById('gfx');
+  const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('gfx'));
   const gpu = await initWebGPU(canvas);
   const renderer = new Renderer(gpu);
   const painting = new Painting(gpu);

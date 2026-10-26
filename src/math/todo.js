@@ -11,6 +11,10 @@ export class NotImplemented extends Error {
   }
 }
 
+/**
+ * @param {string} name
+ * @returns {any}
+*/
 export function todo(name) {
   throw new NotImplemented(name);
 }
