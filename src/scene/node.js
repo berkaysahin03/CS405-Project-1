@@ -19,7 +19,7 @@ export class SceneNode {
   constructor(name, local = I()) {
     this.name = name;
     this.local = local;
-    this.world = I();
+    /** @type {mat4.Mat4} */ this.world = I();
     this.parent = null;
     this.children = [];
     /** Anything you want to attach: a mesh, a colour, an animation function… */
@@ -40,7 +40,12 @@ export class SceneNode {
    * @param {Float32Array} [parentWorld]  world matrix of the parent (identity for the root)
    */
   updateWorld(parentWorld) {
-    return todo('SceneNode.updateWorld');
+    if (parentWorld)
+      this.world = mat4.multiply(parentWorld, this.local)
+    else
+      this.world = this.local
+
+    this.children.forEach(c => c.updateWorld(this.world))
   }
 
   /** Visit this node and all descendants depth-first: fn(node, depth). */
