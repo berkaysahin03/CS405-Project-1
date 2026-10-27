@@ -35,6 +35,12 @@ export function scale(a, s) {
     return [s * a[0], s * a[1], s * a[2]]
 }
 
+/** -v 
+ * @param {Vec3} v
+ * @returns {Vec3}
+ */
+export let negate = v => scale(v, -1)
+
 /** a · b  → number
  * @param {Vec3} a
  * @param {Vec3} b

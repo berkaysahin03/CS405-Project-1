@@ -18,6 +18,7 @@
  * No maths libraries (no gl-matrix, no Three.js). Tests: tests/mat4.test.js
  */
 import { todo } from './todo.js';
+const Vec3 = await import('./vec3.js')
 
 /* ------------------------------------------------------------- Part A ---- */
 
@@ -207,22 +208,71 @@ export function transformVec4(m, v) {
  * approximate up direction. Build the camera basis with two cross products.
  * Must stay finite when `up` is parallel to the view direction — handle it.
  * eye, target, up: [x, y, z]
+ * @param {Vec3} eye
+ * @param {Vec3} target
+ * @param {Vec3} up
+ * @returns {Mat4}
  */
-export function lookAt(eye, target, up) { return todo('mat4.lookAt'); }
+export function lookAt(eye, target, up) {
+  let forward = Vec3.normalize(Vec3.sub(eye, target))
+  let right = Vec3.normalize(Vec3.cross(up, forward))
+  if (Vec3.length(right) == 0)
+    right = [1, 0, 0]
+  let trueUp = Vec3.cross(forward, right)
+
+  let m = new Float32Array([
+    right, 0,
+    trueUp, 0,
+    forward, 0,
+    eye, 1
+  ].flat())
+
+  return invertRigid(m)
+}
 
 /**
  * Perspective projection for WebGPU (depth z ∈ [0, 1]).
  * fovY: vertical field of view in radians; aspect = width / height;
  * near, far: positive distances along −z.
+ * @param {Radians} fovY
+ * @param {number} aspect
+ * @param {number} near
+ * @param {number} far
+ * @returns {Mat4}
  */
-export function perspective(fovY, aspect, near, far) { return todo('mat4.perspective'); }
+export function perspective(fovY, aspect, near, far) {
+  let f = 1 / Math.tan(fovY / 2)
+  let x = far/(near - far)
+
+  return new Float32Array([
+    f/aspect, 0,        0,  0,
+           0, f,        0,  0,
+           0, 0,        x, -1,
+           0, 0, near * x,  0,
+  ]);
+}
 
 /**
  * Orthographic projection for WebGPU (depth z ∈ [0, 1]) of the box
  * x ∈ [left, right], y ∈ [bottom, top], z ∈ [−near, −far] in view space.
+ * @param {number} left
+ * @param {number} right
+ * @param {number} bottom
+ * @param {number} top
+ * @param {number} near
+ * @param {number} far
+ * @returns {Mat4}
  */
 export function orthographic(left, right, bottom, top, near, far) {
-  return todo('mat4.orthographic');
+  let invrml = 1 / (right - left)
+  let invtmb = 1 / (top - bottom)
+  let invnmf = 1 / (near - far)
+  return new Float32Array([
+                  2 * invrml,                        0,             0, 0,
+                           0,               2 * invtmb,             0, 0,
+                           0,                        0,        invnmf, 0,
+    -(right + left) * invrml, -(top + bottom) * invtmb, near * invnmf, 1
+  ]);
 }
 
 /* ------------------------------------------------- provided (not graded) - */
