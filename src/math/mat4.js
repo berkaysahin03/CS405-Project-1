@@ -18,7 +18,7 @@
  * No maths libraries (no gl-matrix, no Three.js). Tests: tests/mat4.test.js
  */
 import { todo } from './todo.js';
-const Vec3 = await import('./vec3.js')
+import * as vec3 from './vec3.js'
 
 /* ------------------------------------------------------------- Part A ---- */
 
@@ -214,11 +214,11 @@ export function transformVec4(m, v) {
  * @returns {Mat4}
  */
 export function lookAt(eye, target, up) {
-  let forward = Vec3.normalize(Vec3.sub(eye, target))
-  let right = Vec3.normalize(Vec3.cross(up, forward))
-  if (Vec3.length(right) == 0)
+  let forward = vec3.normalize(vec3.sub(eye, target))
+  let right = vec3.normalize(vec3.cross(up, forward))
+  if (vec3.length(right) == 0)
     right = [1, 0, 0]
-  let trueUp = Vec3.cross(forward, right)
+  let trueUp = vec3.cross(forward, right)
 
   let m = new Float32Array([
     right, 0,
