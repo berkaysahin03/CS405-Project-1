@@ -4,7 +4,6 @@
  * Every function returns a NEW array and never modifies its arguments.
  * Write these yourself (Week 1, Linear Algebra I). Tests: tests/vec3.test.js
  */
-import { todo } from './todo.js';
 
 /** @typedef {[number, number, number]} Vec3 */
 

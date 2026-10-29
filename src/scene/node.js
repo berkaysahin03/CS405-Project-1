@@ -6,7 +6,6 @@
  * Tests: tests/node.test.js
  */
 import * as mat4 from '../math/mat4.js';
-import { todo } from '../math/todo.js';
 
 // A literal identity so nodes can be created before mat4.identity() exists.
 const I = () => new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);

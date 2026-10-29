@@ -17,7 +17,7 @@
  *
  * No maths libraries (no gl-matrix, no Three.js). Tests: tests/mat4.test.js
  */
-import { todo } from './todo.js';
+
 import * as vec3 from './vec3.js'
 
 /* ------------------------------------------------------------- Part A ---- */
