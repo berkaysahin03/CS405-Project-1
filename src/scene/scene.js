@@ -25,6 +25,9 @@
  * counter in the panel is correct (Part E).
  */
 
+import { mat4, SceneNode } from "./node.js";
+import * as drawable from "./drawable.js"
+
 export function createScene({ gpu, renderer, painting, panel }) {
   const { device } = gpu;
   const state = {
@@ -36,16 +39,32 @@ export function createScene({ gpu, renderer, painting, panel }) {
   f.toggle('debug axes', state, 'debugAxes');
   f.note('Add your objects in src/scene/scene.js.');
 
+  let root = new SceneNode("root")
+  let cube = new drawable.Cube("cube", mat4.multiply(mat4.translate(0, 0, 0), mat4.scale(0.1, 0.1, 0.1)), device, (cube, dt) => {
+    cube.local = mat4.multiply(mat4.translate(0, 0, dt/2), cube.local)
+    cube.local = mat4.multiply(cube.local, mat4.rotateX(dt))
+    cube.local = mat4.multiply(cube.local, mat4.rotateY(dt))
+  })
+
+  root.addChild(cube)
+
   return {
     state,
 
     update(dt, time) {
       // TODO: animate nodes, then root.updateWorld()
+      cube.data.animate(dt, time)
+      root.updateWorld()
     },
 
     /** @param {GPURenderPassEncoder} pass  @param {Float32Array} viewProj  P · V */
     draw(pass, viewProj) {
       // TODO: one draw per object, with  mvp = viewProj · model
+      root.traverse((node, depth) => {
+        if (node instanceof drawable.Drawable) {
+          node.draw(pass, viewProj)
+        }
+      })
     },
 
     reset() {
