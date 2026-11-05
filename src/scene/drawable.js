@@ -100,10 +100,10 @@ export class Drawable extends SceneNode {
      * @param {mat4.Mat4} viewProj 
      */
     draw(pass, viewProj) {
-        const mtn = mat4.transpose(mat4.invertRigid(this.world))
+        const normalMatrix = mat4.transpose(mat4.invertRigid(this.world))
         const mvp = mat4.multiply(viewProj, this.world)
         this.data.device.queue.writeBuffer(this.data.uniformBuffer, 0, mvp)
-        this.data.device.queue.writeBuffer(this.data.uniformBuffer, mvp.byteLength, mtn)
+        this.data.device.queue.writeBuffer(this.data.uniformBuffer, mvp.byteLength, normalMatrix)
         const data = this.data
         pass.setPipeline(data.pipeline)
         pass.setBindGroup(0, data.bindGroup)

@@ -1,6 +1,6 @@
 struct Uniforms {
   mvp: mat4x4f,   // P · V · M, column-major, uploaded as 16 floats
-  mtn: mat4x4f,
+  normalMatrix: mat4x4f,
 };
 
 @group(0) @binding(0) var<uniform> u: Uniforms;
@@ -14,7 +14,7 @@ struct VSOut {
 fn vs(@location(0) pos: vec3f, @location(1) normal: vec3f) -> VSOut {
   var o: VSOut;
   o.position = u.mvp * vec4f(pos, 1.0);
-  o.normal = u.mtn * vec4f(normal, 0.0);
+  o.normal = u.normalMatrix * vec4f(normal, 0.0);
   return o;
 }
 
