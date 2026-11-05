@@ -100,8 +100,8 @@ export class Drawable extends SceneNode {
      * @param {mat4.Mat4} viewProj 
      */
     draw(pass, viewProj) {
-        const mtn = mat4.transpose(mat4.invertRigid(this.local))
-        const mvp = mat4.multiply(viewProj, this.local)
+        const mtn = mat4.transpose(mat4.invertRigid(this.world))
+        const mvp = mat4.multiply(viewProj, this.world)
         this.data.device.queue.writeBuffer(this.data.uniformBuffer, 0, mvp)
         this.data.device.queue.writeBuffer(this.data.uniformBuffer, mvp.byteLength, mtn)
         const data = this.data
