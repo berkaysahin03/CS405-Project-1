@@ -1,6 +1,7 @@
 import { mat4, SceneNode } from "./node.js";
 import * as geometry from "./geometry.js"
 import * as shader from "../render/shader.js"
+import * as renderer from "../render/renderer.js"
 
 import paintingWGSL from '../render/shaders/drawable.wgsl?raw'
 
@@ -10,12 +11,13 @@ export class Drawable extends SceneNode {
     /**
      * @param {string} name
      * @param {mat4.Mat4} local
-     * @param {GPUDevice} device
+     * @param {*} gpu
      * @param {Float32Array} vertices
      * @param {AnimationFunction} animate
      */
-    constructor(name, local, device, vertices, animate) {
+    constructor(name, local, gpu, vertices, animate) {
         super(name, local)
+        const { device } = gpu
 
         let uniformBuffer = device.createBuffer({
             size: this.local.byteLength * 2,
@@ -59,17 +61,13 @@ export class Drawable extends SceneNode {
             },
             fragment: {
                 module: shaderModule,
-                entryPoint: "fs",
-                targets: [
-                    {
-                        format: /** @type {GPUTextureFormat} */ (navigator.gpu.getPreferredCanvasFormat() + "-srgb")
-                    }
-                ]
+                entryPoint: 'fs',
+                targets: [{ format: gpu.viewFormat }],
+                constants: shader.fragmentConstants(gpu),
             },
-            primitive: {
-                topology: "triangle-list"
-            },
-            depthStencil: { format: "depth24plus", depthWriteEnabled: true, depthCompare: 'less' },
+            primitive: { topology: 'triangle-list', cullMode: 'none' }, // visible from behind too
+
+            depthStencil: { format: renderer.DEPTH_FORMAT, depthWriteEnabled: true, depthCompare: 'less' },
             layout: "auto"
         }
 
@@ -84,7 +82,7 @@ export class Drawable extends SceneNode {
 
         this.data = {
             ...this.data,
-            device,
+            gpu,
             vertices,
             uniformBuffer,
             vertexBuffer,
@@ -97,18 +95,21 @@ export class Drawable extends SceneNode {
 
     /**
      * @param {GPURenderPassEncoder} pass 
-     * @param {mat4.Mat4} viewProj 
+     * @param {mat4.Mat4} viewProj
+     * @param {renderer.Renderer} renderer  
      */
-    draw(pass, viewProj) {
+    draw(pass, viewProj, renderer) {
+        const { device } = this.data.gpu
         const normalMatrix = mat4.transpose(mat4.invertRigid(this.world))
         const mvp = mat4.multiply(viewProj, this.world)
-        this.data.device.queue.writeBuffer(this.data.uniformBuffer, 0, mvp)
-        this.data.device.queue.writeBuffer(this.data.uniformBuffer, mvp.byteLength, normalMatrix)
+        device.queue.writeBuffer(this.data.uniformBuffer, 0, mvp)
+        device.queue.writeBuffer(this.data.uniformBuffer, mvp.byteLength, normalMatrix)
         const data = this.data
         pass.setPipeline(data.pipeline)
         pass.setBindGroup(0, data.bindGroup)
         pass.setVertexBuffer(0, data.vertexBuffer)
         pass.draw(data.vertices.length / 6)
+        renderer.countDraw(data.vertices.length / 6)
     }
 }
 
@@ -116,10 +117,10 @@ export class Cube extends Drawable {
     /**
      * @param {string} name
      * @param {mat4.Mat4} local
-     * @param {GPUDevice} device
+     * @param {*} gpu
      * @param {AnimationFunction|null} animationFn 
      */
-    constructor(name, local = mat4.identity(), device, animationFn = null) {
-        super(name, local, device, geometry.cube(), animationFn)
+    constructor(name, local = mat4.identity(), gpu, animationFn = null) {
+        super(name, local, gpu, geometry.cube(), animationFn)
     }
 }

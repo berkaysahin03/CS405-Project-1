@@ -40,13 +40,15 @@ export function createScene({ gpu, renderer, painting, panel }) {
   f.note('Add your objects in src/scene/scene.js.');
 
   let root = new SceneNode("root")
-  let cube = new drawable.Cube("cube", mat4.multiply(mat4.translate(0, 0, 0), mat4.scale(0.1, 0.1, 0.1)), device, (cube, dt) => {
-    cube.local = mat4.multiply(mat4.translate(0, 0, dt/2), cube.local)
+  let cube = new drawable.Cube("cube", mat4.multiply(mat4.translate(0, -0.5, 1), mat4.scale(0.1, 0.1, 0.1)), gpu, (cube, dt, time) => {
+    cube.local = mat4.multiply(mat4.translate(Math.cos(time/2)*dt/4, Math.sin(time/2)*dt/4, Math.sin(time)*dt/2), cube.local)
     cube.local = mat4.multiply(cube.local, mat4.rotateX(dt))
     cube.local = mat4.multiply(cube.local, mat4.rotateY(dt))
   })
+  let small = new drawable.Cube("small", mat4.multiply(mat4.translate(0.0, 0.0, 1.0), mat4.scale(0.5, 0.5, 0.5)), gpu)
 
   root.addChild(cube)
+  cube.addChild(small)
 
   return {
     state,
