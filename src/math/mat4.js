@@ -215,9 +215,22 @@ export function transformVec4(m, v) {
  */
 export function lookAt(eye, target, up) {
   let forward = vec3.normalize(vec3.sub(eye, target))
-  let right = vec3.normalize(vec3.cross(up, forward))
-  if (vec3.length(right) == 0)
-    right = [1, 0, 0]
+  let right = vec3.cross(up, forward)
+  if (vec3.length(right) < 1e-6) {
+    let [x, y, z] = forward
+    let min = Math.min(Math.abs(x), Math.abs(y), Math.abs(z))
+    if (min === x)
+      up = [1, 0, 0]
+    else if (min === y)
+      up = [0, 1, 0]
+    else
+      up = [0, 0, 1]
+
+    right = vec3.cross(up, forward)
+  }
+
+  right = vec3.normalize(right)
+
   let trueUp = vec3.cross(forward, right)
 
   let m = new Float32Array([
