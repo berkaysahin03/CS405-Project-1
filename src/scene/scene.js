@@ -27,6 +27,8 @@
 
 import { mat4, SceneNode } from "./node.js";
 import * as drawable from "./drawable.js"
+import * as geometry from "./geometry.js"
+import * as line from "../render/line.js"
 
 export function createScene({ gpu, renderer, painting, panel }) {
   const { device } = gpu;
@@ -50,6 +52,11 @@ export function createScene({ gpu, renderer, painting, panel }) {
   root.addChild(cube)
   cube.addChild(small)
 
+  root.traverse((node) => {
+    node.data.axes = new line.Line(gpu, "line-list", "always")
+    node.data.axes.setVertices(geometry.axes(1.5))
+  })
+
   return {
     state,
 
@@ -64,9 +71,12 @@ export function createScene({ gpu, renderer, painting, panel }) {
       // TODO: one draw per object, with  mvp = viewProj · model
       root.traverse((node, depth) => {
         if (node instanceof drawable.Drawable) {
-          node.draw(pass, viewProj)
+          node.draw(pass, viewProj, renderer)
         }
       })
+
+      if (state.debugAxes)
+        root.traverse((node) => node.data.axes.draw(pass, viewProj, node.world, renderer))
     },
 
     reset() {
