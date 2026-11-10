@@ -5,13 +5,23 @@ import * as renderer from "../render/renderer.js"
 
 import paintingWGSL from '../render/shaders/drawable.wgsl?raw'
 
+/**
+ * @typedef {{
+ *   device: GPUDevice, context: GPUCanvasContext, canvas: HTMLCanvasElement,
+ *   canvasFormat: GPUTextureFormat,   // format of the swap-chain texture
+ *   viewFormat: GPUTextureFormat,     // format your pipelines must render to
+ *   encodeSRGB: boolean,              // true → shaders must encode linear → sRGB themselves
+ *   onResize: (fn: (w: number, h: number) => void) => void,
+ * }} GPUHandle
+ */
+
 /** @typedef {function(Drawable, number, number): void} AnimationFunction */
 
 export class Drawable extends SceneNode {
     /**
      * @param {string} name
      * @param {mat4.Mat4} local
-     * @param {*} gpu
+     * @param {GPUHandle} gpu
      * @param {Float32Array} vertices
      * @param {AnimationFunction} animate
      */

@@ -4,9 +4,19 @@ import * as mat4 from "../math/mat4.js"
 
 import lineWGSL from './shaders/line.wgsl?raw'
 
+/**
+ * @typedef {{
+ *   device: GPUDevice, context: GPUCanvasContext, canvas: HTMLCanvasElement,
+ *   canvasFormat: GPUTextureFormat,   // format of the swap-chain texture
+ *   viewFormat: GPUTextureFormat,     // format your pipelines must render to
+ *   encodeSRGB: boolean,              // true → shaders must encode linear → sRGB themselves
+ *   onResize: (fn: (w: number, h: number) => void) => void,
+ * }} GPUHandle
+ */
+
 export class Line {
     /**
-     * @param {*} gpu
+     * @param {GPUHandle} gpu
      * @param {GPUPrimitiveTopology} topology 
      * @param {GPUCompareFunction} depthCompare 
      */
@@ -18,6 +28,7 @@ export class Line {
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         })
 
+        /** @type {GPUBuffer|null} */
         let vertexBuffer = null
         let vertexCount = 0
         let capacity = 0
