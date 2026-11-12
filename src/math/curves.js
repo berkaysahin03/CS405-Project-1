@@ -25,10 +25,10 @@ export function bernstein3(t) {
   ];
 }
 
-let add = (a, b) => a.map((ai, i) => ai + b[i])
-let sub = (a, b) => a.map((ai, i) => ai - b[i])
-let scale = (a, s) => a.map(ai => ai * s)
-let lerp = (a, b, t) => add(scale(a, 1 - t), scale(b, t))
+export let add = (a, b) => a.map((ai, i) => ai + b[i])
+export let sub = (a, b) => a.map((ai, i) => ai - b[i])
+export let scale = (a, s) => a.map(ai => ai * s)
+export let lerp = (a, b, t) => add(scale(a, 1 - t), scale(b, t))
 
 /** Point on the cubic Bézier curve with control points p0..p3 at t ∈ [0, 1]. */
 export function cubicBezier(p0, p1, p2, p3, t) {
@@ -77,6 +77,8 @@ export function deCasteljau(points, t) {
 export function c1NextControl(p2, p3) {
   return sub(scale(p3, 2), p2)
 }
+
+export let clamp = (v, a, b) => Math.min(Math.max(v, a), b)
 
 /**
  * Evaluate a piecewise cubic Bézier at a global parameter u ∈ [0, 1] that
