@@ -59,7 +59,7 @@ export function deCasteljau(points, t) {
   let levels = []
   levels[0] = points
 
-  for (let i = 0; levels[i].length !== 1; i++) {
+  for (let i = 0; levels[i].length > 1; i++) {
     levels[i + 1] = []
     for (let j = 0; j < levels[i].length - 1; j++) {
       levels[i + 1][j] = lerp(levels[i][j], levels[i][j + 1], t)
@@ -87,7 +87,7 @@ export let clamp = (v, a, b) => Math.min(Math.max(v, a), b)
  */
 export function evalPiecewise(segments, u) {
   let n = segments.length
-  let s = u * n
+  let s = clamp(u, 0, 1) * n
   let i = Math.min(Math.floor(s), n - 1)
   let t = s - i
   let [p0, p1, p2, p3] = segments[i]
