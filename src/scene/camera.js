@@ -21,6 +21,9 @@ export function createCamera() {
     far: 100,
     projection: 'perspective', // or 'orthographic'
     orthoHeight: 2.2, // world units visible vertically in orthographic mode
+    yaw: 0,
+    pitch: 0,
+    r: 2.8
   };
 }
 

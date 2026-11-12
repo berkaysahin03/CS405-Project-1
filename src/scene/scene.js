@@ -29,6 +29,7 @@ import { mat4, SceneNode } from "./node.js";
 import * as drawable from "./drawable.js"
 import * as geometry from "./geometry.js"
 import * as line from "../render/line.js"
+import { Curve } from "./curve.js";
 
 export function createScene({ gpu, renderer, painting, panel }) {
   const { device } = gpu;
@@ -57,13 +58,25 @@ export function createScene({ gpu, renderer, painting, panel }) {
     node.data.axes.setVertices(geometry.axes(1.5))
   })
 
+  let curve = new Curve(gpu, painting)
+  curve.setControlPoints([
+    [0.10, 0.50], [0.20, 0.20], [0.30, 0.20],
+    [0.40, 0.50],                // joint
+    [0.50, 0.80], [0.55, 0.80],  // P4 = 2·P3 − P2
+    [0.65, 0.50],                // joint
+    [0.75, 0.20], [0.85, 0.20],  // P7 = 2·P6 − P5
+    [0.90, 0.50],
+  ])
+
   return {
     state,
+    curve,
 
     update(dt, time) {
       // TODO: animate nodes, then root.updateWorld()
       cube.data.animate(dt, time)
       root.updateWorld()
+      curve.update()
     },
 
     /** @param {GPURenderPassEncoder} pass  @param {Float32Array} viewProj  P · V */
@@ -74,6 +87,8 @@ export function createScene({ gpu, renderer, painting, panel }) {
           node.draw(pass, viewProj, renderer)
         }
       })
+
+      curve.draw(pass, viewProj, renderer)
 
       if (state.debugAxes)
         root.traverse((node) => node.data.axes.draw(pass, viewProj, node.world, renderer))

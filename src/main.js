@@ -16,6 +16,8 @@ import { Stats } from './ui/stats.js';
 import { attachPointer } from './ui/input.js';
 import { PAINTINGS, DEFAULT_PAINTING, paintingURL } from './config.js';
 import * as mat4 from './math/mat4.js';
+import * as vec3 from "./math/vec3.js"
+import * as curves from "./math/curves.js"
 
 async function main() {
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('gfx'));
@@ -57,11 +59,137 @@ async function main() {
   vf.note(gpu.encodeSRGB ? 'sRGB: encoded in shader (fallback)' : 'sRGB: canvas -srgb view');
 
   /* -------------- input --------------- */
+  /**
+   * @typedef {{
+   *    px: [number, number],
+   *    ndc: [number, number],
+   *    shift: boolean,
+   *    alt: boolean
+   * }} PointerInfo
+   * 
+   * @typedef {PointerInfo & { delta: number }} WheelInfo
+   * @typedef {PointerInfo & { button: number }} ButtonInfo
+   * @typedef {PointerInfo & { button: number, dx: number, dy: number }} DragInfo
+   */
+  const clamp = (x, a, b) => Math.min(Math.max(x, a), b)
+  const radians = d => d / 180 * Math.PI
+
+  let lastViewProj = null
+  let mode = null
+  let dragIndex = -1
+
+  function updateCamera(/** @type {DragInfo} */ e) {
+    const SPEED = 0.005
+    const ANGLE_LIMIT = radians(80)
+    camera.yaw += -SPEED * e.dx
+    camera.pitch += SPEED * e.dy
+    camera.pitch = clamp(camera.pitch, -ANGLE_LIMIT, ANGLE_LIMIT)
+
+    camera.eye = vec3.add(
+      /** @type {vec3.Vec3} */ (camera.target),
+      vec3.scale(
+        [
+          Math.cos(camera.pitch) * Math.sin(camera.yaw),
+          Math.sin(camera.pitch),
+          Math.cos(camera.pitch) * Math.cos(camera.yaw)
+        ],
+        camera.r
+      )
+    )
+  }
+
+  function updatePoint(/** @type {DragInfo} */ e) {
+    let [right, up, forward] = mat4.computeCameraBasis(
+      /** @type {vec3.Vec3} */ (camera.eye),
+      /** @type {vec3.Vec3} */ (camera.target),
+      /** @type {vec3.Vec3} */ (camera.up)
+    )
+    forward = [-forward[0], -forward[1], -forward[2]]
+
+    const curve = scene.curve
+
+    let direction = [0, 0, 0]
+    let origin = [0, 0, 0]
+    let k = Math.tan(camera.fovY / 2)
+    let aspect = canvas.width / canvas.height
+    const H = camera.orthoHeight / 2;
+    const W = H * aspect
+
+    if (camera.projection == "orthographic") {
+      origin = curves.add(
+        camera.eye,
+        curves.add(
+          curves.scale(right, e.ndc[0] * W),
+          curves.scale(up, e.ndc[1] * H)
+        )
+      )
+      direction = forward
+    } else {
+      origin = camera.eye
+      direction = curves.add(
+        curves.add(
+          forward,
+          curves.scale(right, e.ndc[0] * k * aspect),
+        ),
+        curves.scale(up, e.ndc[1] * k)
+      )
+    }
+
+    if (Math.abs(direction[2]) < 1e-6)
+      return
+
+    let t = -origin[2] / direction[2]
+    if (t < 0)
+      return
+
+    let x = origin[0] + t * direction[0]
+    let y = origin[1] + t * direction[1]
+
+    curve.controlPoints[dragIndex] = /** @type {[number, number]} */ (curve.fromWorld([x, y]).map(v => curves.clamp(v, 0, 1)))
+    curve.dirty = true
+  }
+
   attachPointer(canvas, {
     // TODO (Part C): orbit the camera on drag, zoom on wheel.
     // TODO (Part D): pick / drag control points on the painting.
-    drag(e) {},
-    wheel(e) {},
+    drag(/** @type {DragInfo} */ e) {
+      if (mode === "orbit")
+        updateCamera(e)
+      else if (mode === "point")
+        updatePoint(e)
+    },
+    wheel(/** @type {WheelInfo} */ e) {
+      const SCROLL_SPEED = 0.001
+      const LOW_FOV_LIMIT = radians(10)
+      const HIGH_FOV_LIMIT = radians(120)
+      camera.fovY += SCROLL_SPEED * e.delta
+      camera.fovY = clamp(camera.fovY, LOW_FOV_LIMIT, HIGH_FOV_LIMIT)
+    },
+    down(/** @type {ButtonInfo} */ e) {
+      if (e.button !== 0) {
+        mode = null
+        return
+      }
+
+      const W = canvas.clientWidth
+      const H = canvas.clientHeight
+      const vp = viewProjection(camera, W / H, painting.aspect);
+      if (!vp.fallback) lastViewProj = vp.matrix
+
+      if (lastViewProj === null)
+        return
+
+      dragIndex = scene.curve.hitTest(e.px, vp.matrix, W, H)
+      if (dragIndex > -1)
+        mode = "point"
+      else
+        mode = "orbit"
+    },
+
+    up(/** @type {ButtonInfo} */ e) {
+      mode = null
+      dragIndex = -1
+    }
   });
 
   /* ------------ render loop ----------- */
