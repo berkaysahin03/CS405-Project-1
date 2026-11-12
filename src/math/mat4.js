@@ -204,24 +204,20 @@ export function transformVec4(m, v) {
 /* ------------------------------------------------------------- Part C ---- */
 
 /**
- * View matrix for a camera at `eye` looking at `target`, with `up` as the
- * approximate up direction. Build the camera basis with two cross products.
- * Must stay finite when `up` is parallel to the view direction — handle it.
- * eye, target, up: [x, y, z]
  * @param {Vec3} eye
  * @param {Vec3} target
  * @param {Vec3} up
- * @returns {Mat4}
+ * @returns {[Vec3, Vec3, Vec3]}
  */
-export function lookAt(eye, target, up) {
+export function computeCameraBasis(eye, target, up) {
   let forward = vec3.normalize(vec3.sub(eye, target))
   let right = vec3.cross(up, forward)
   if (vec3.length(right) < 1e-6) {
     let [x, y, z] = forward
     let min = Math.min(Math.abs(x), Math.abs(y), Math.abs(z))
-    if (min === x)
+    if (min === Math.abs(x))
       up = [1, 0, 0]
-    else if (min === y)
+    else if (min === Math.abs(y))
       up = [0, 1, 0]
     else
       up = [0, 0, 1]
@@ -232,6 +228,22 @@ export function lookAt(eye, target, up) {
   right = vec3.normalize(right)
 
   let trueUp = vec3.cross(forward, right)
+
+  return [right, trueUp, forward]
+} 
+
+/**
+ * View matrix for a camera at `eye` looking at `target`, with `up` as the
+ * approximate up direction. Build the camera basis with two cross products.
+ * Must stay finite when `up` is parallel to the view direction — handle it.
+ * eye, target, up: [x, y, z]
+ * @param {Vec3} eye
+ * @param {Vec3} target
+ * @param {Vec3} up
+ * @returns {Mat4}
+ */
+export function lookAt(eye, target, up) {
+  let [right, trueUp, forward] = computeCameraBasis(eye, target, up)
 
   let m = new Float32Array([
     right, 0,
