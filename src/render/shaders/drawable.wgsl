@@ -20,5 +20,5 @@ fn vs(@location(0) pos: vec3f, @location(1) normal: vec3f) -> VSOut {
 
 @fragment
 fn fs(i: VSOut) -> @location(0) vec4f {
-  return toOutput(vec4f(vec3f(max(dot(normalize(i.normal), normalize(vec4f(0.0, 1.0, 1.0, 0.0))), 0.1)), 1.0));
+  return toOutput(vec4f(vec3f(max(dot(normalize(i.normal.xyz), normalize(vec3f(0.0, 1.0, 1.0))), 0.1)), 1.0));
 }
