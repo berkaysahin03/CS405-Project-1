@@ -1,131 +1,92 @@
 # CS405 Project 1 — Transformations, Projection & Curves from Paintings
 
-Starter code for Project 1 (Fall 2026). Read the handout `CS405_Project1_2026.docx`
-for the rules, deliverables and grading, and `Project1/index.html` for the live
-demos of each part.
+An interactive WebGPU scene built around **İlhami Demirci — *Natürmort*** from the
+Sakıp Sabancı Museum collection. The painting hangs in the scene as a textured
+quad. In front of it stand a cup on a saucer, a flower pot with a swaying leaf and
+a book you control from the panel. Curves traced over a leaf edge and the pot rim in the painting
+carry an object that follows the curve tangent. Parts A–D of the assignment all
+live in this one application.
 
-> **Replace this README** with your own before you submit (Part E): how to run
-> your application and what every control does.
+The report is in [`report.pdf`](report.pdf).
 
-## 1. Getting started
+## Running it
 
-Requirements: **Node.js 20.19 or newer** (`node -v`) and a browser with WebGPU —
-current Chrome or Edge, Safari 26+, or Firefox 141+ on Windows.
+Requirements: **Node.js 20.19 or newer** and a browser with WebGPU (current Chrome
+or Edge, Safari 26+, or Firefox 141+ on Windows).
 
 ```bash
 npm install
-npm run dev        # opens http://localhost:5173
-npm test           # unit tests for your maths (they fail until you implement it)
+npm run dev        # then open http://localhost:5173
+npm test           # unit tests for the matrix, vector, scene-graph and curve maths
 ```
 
-You should see your painting and a panel on the right with a frame-time counter.
-The Camera box says **PLACEHOLDER view** until `lookAt`, `perspective` and
-`multiply` work; after that it switches to your camera on its own.
+`npm test` should report 51 passing tests and 1 skipped. The skipped test belongs to
+the B-spline family, which was not implemented; Catmull–Rom was implemented instead.
 
-## 2. Putting it on GitHub
+## Controls
 
-The project is submitted as a GitHub repository. Keep it **private** until the
-deadline (sharing code is not allowed), and give the course staff access as
-announced on SUCourse.
+### Mouse (on the canvas)
 
-```bash
-git init
-git add .
-git commit -m "CS405 Project 1 starter"
-git branch -M main
-git remote add origin https://github.com/<you>/cs405-project1.git
-git push -u origin main
-```
+| Input | Effect |
+|---|---|
+| Left-drag on a control point | Moves the point in the plane of the painting (main view only). Bézier joints and handles keep C¹ continuity. |
+| Left-drag anywhere else | Orbits the main camera around its target (pitch limited to ±80°). This also works in the inspection view, where you can watch the frustum move. |
+| Mouse wheel | Zoom: changes the field of view (10°–120°) and the orthographic height with it. |
 
-At the end: `git tag project1-final && git push origin project1-final`.
-The tag's timestamp is what gets graded.
+### Panel
 
-## 3. What is provided and what is yours
-
-| Path | Status | Part |
+| Folder | Control | Effect |
 |---|---|---|
-| `src/render/gpu.js` | provided — device, canvas, sRGB output, resize | |
-| `src/render/renderer.js` | provided — one render pass per frame with depth; vertex counter | E |
-| `src/render/painting.js` | provided — the painting as a textured quad; **a complete example draw** | |
-| `src/render/texture.js` | provided — image → `rgba8unorm-srgb` texture with mipmaps | |
-| `src/render/shaders/*.wgsl` | provided — `toOutput()` for correct sRGB | |
-| `src/ui/panel.js`, `stats.js`, `input.js` | provided — panel, frame time, pointer events | E |
-| `src/scene/geometry.js` | provided — cube and axes vertex data | |
-| `src/math/vec3.js` | **TODO** | A, C |
-| `src/math/mat4.js` | **TODO** — `format()` is provided | A, C |
-| `src/math/curves.js` | **TODO** | D |
-| `src/scene/node.js` | **TODO** `updateWorld()` | B |
-| `src/scene/camera.js` | uses your `mat4`; you add orbit controls in `main.js` | C |
-| `src/scene/scene.js` | **yours** — objects, scene graph, curves | A, B, D |
-| `src/scene/curveExport.js` | **TODO** `curveToJSON()`; `downloadJSON()` is provided | D |
-| `src/main.js` | wiring and render loop — you will extend it | C, E |
+| **Painting** | painting | Loads another painting. The curves were traced on *Natürmort*, the default. |
+| | Export curve JSON | Downloads the active curve, with its control points in normalised (u, v). |
+| **Camera** | projection | Perspective or orthographic. |
+| | readout | Live eye, target, fovY, near and far of the main camera. |
+| **Scene** | debug axes | Draws every scene-graph node's local x/y/z axes (red/green/blue). |
+| **Model matrix** (Part A) | Use SRT | Composes the book's matrix as S·R·T instead of T·R·S. |
+| | TRS / SRT | Both matrices, printed live. |
+| | tx, ty, tz | Translation of the book. |
+| | sx, sy, sz | Scale of the book. |
+| | yaw, pitch, roll | Rotation about y, x and z. The rotation is R = Ry·Rx·Rz. |
+| **Curves** (Part D) | curve | `bezier-c1`: piecewise cubic Bézier with C¹ joints. `catmull-rom`: spline through the points. |
+| | t | Position of the object travelling along the curve. |
+| | Move point with time | Animates t, one lap every 10 s. |
+| **De Casteljau Construction** | Show construction | Draws the construction levels of the Bézier at u: cyan, magenta, orange, then a white point on the curve. |
+| | u | Global curve parameter. The readout shows its segment and local t. |
+| **View** | View select | `main`: the camera you orbit. `inspection`: a fixed camera that shows the main camera's frustum. |
+| | reset | Restores the camera, projection, view, the book's transform, both curves, t, u and the animation switch. The debug toggles and the painting choice are left as they are. |
 
-Every function you still have to write throws `NotImplemented` ("TODO: implement …").
-Keep the folder split `math/ scene/ render/ ui/` (Part E grades code structure).
-You may add files.
+The frame time, CPU time and the number of draws and vertices per frame are shown
+at the top of the panel.
 
-## 4. Conventions — the tests check these
+## Where things are
 
-- Matrices are `Float32Array(16)`, **column-major**: element (row r, col c) is at `c*4 + r`;
-  translation sits at indices 12, 13, 14. This is exactly what you upload to a WGSL `mat4x4f`.
-- Column vectors: `p' = M · p`. `multiply(A, B)` is `A·B`, so `B` acts first.
-- Right-handed world; angles in **radians**; `rotateZ(π/2)` takes +x to +y.
-- View space: camera at the origin looking down **−z**, +y up.
-- Clip space is **WebGPU's**: after dividing by w, x, y ∈ [−1, 1] and **z ∈ [0, 1]**
-  (near → 0, far → 1). OpenGL's [−1, 1] depth formulas fail the tests.
-- The painting quad: centred at the origin in the plane z = 0, y ∈ [−1, 1],
-  x ∈ [−a, a] with a = image width / height. "In front of the painting" means z > 0.
-- Colour: shaders work in **linear** RGB and return `toOutput(colour)`. Textures
-  you load with `textureFromBitmap()` are sRGB and decode to linear automatically.
+| Part | Files |
+|---|---|
+| A · Transformations | `src/math/mat4.js`, `src/math/vec3.js`; book controls in `src/scene/scene.js` |
+| B · Scene graph | `src/scene/node.js`, `src/scene/drawable.js`; the tree and leaf animation in `src/scene/scene.js` |
+| C · Camera & projection | `lookAt`, `perspective`, `orthographic` in `src/math/mat4.js`; `src/scene/camera.js`; `src/scene/frustum.js`; orbit and zoom in `src/main.js` |
+| D · Curves | `src/math/curves.js` (maths), `src/scene/curve.js` (editable curves, picking, rendering), `src/scene/rayIntersection.js` (mouse ray ∩ painting plane), `src/scene/curveExport.js` |
+| E · Integration | `src/main.js` (wiring, render loop), `src/render/` (WebGPU pipelines and shaders), `src/ui/` (panel, stats, input) |
 
-## 5. Tests
+Conventions: column-major `Float32Array(16)` matrices, column vectors (`M · p`),
+right-handed world with +y up, the camera looking down −z, and WebGPU clip depth
+z ∈ [0, 1]. The painting spans x ∈ [−a, a], y ∈ [−1, 1] in the plane z = 0, with
+a = width / height, and the objects stand at z > 0.
 
-`npm test` runs `tests/*.test.js` with Node's built-in test runner (no extra
-packages). `npm run test:watch` re-runs them when you save. Until you implement
-a function its tests fail with `TODO: implement <name>`; the goal is all green.
-For the second curve family, implement `catmullRom` **or** `bspline` (+ `bsplineBasis`);
-the tests skip the one you leave out.
+## Exported curves
 
-The tests check the conventions, not your whole project: passing them is
-necessary, not sufficient. Do not edit the tests to make them pass.
+The traced curves are in the repository root:
 
-## 6. Drawing your own objects
+- [`naturmort-bezier-c1.json`](naturmort-bezier-c1.json): 5 Bézier segments, 4 control points each.
+- [`naturmort-catmull-rom.json`](naturmort-catmull-rom.json): 8 Catmull–Rom points.
 
-`render/painting.js` is a full, small example: vertex buffer → uniform buffer →
-bind group → pipeline → `draw()`. Copy its structure for a mesh pipeline
-(`scene/geometry.js` gives you a cube with normals). Two things that catch people out:
+Coordinates are normalised painting coordinates: u, v ∈ [0, 1], with the origin at
+the top-left corner and v pointing down. The app loads these same curves at
+startup and after reset.
 
-- `queue.writeBuffer()` calls all run **before** the frame's commands. Objects
-  that share one uniform buffer all see the last value. Use one uniform buffer
-  per object (or one big buffer with dynamic offsets).
-- Every pipeline that draws to the canvas needs
-  `targets: [{ format: gpu.viewFormat }]`, `constants: fragmentConstants(gpu)` in its
-  fragment stage, and `depthStencil: { format: DEPTH_FORMAT, … }`. Build shaders with
-  `createShader()` so `toOutput()` is available.
+## Troubleshooting
 
-Call `renderer.countDraw(vertexCount)` after each draw so the vertex counter is right.
-
-## 7. Choosing a painting
-
-Pick one in the panel, with `?painting=<id>` in the URL, or set `DEFAULT_PAINTING`
-in `src/config.js`. Bundled: `kavunlu`, `kabatas`, `moda`, `selim-turbesi`,
-`ormanda-karaca`. To use another painting from the Sakıp Sabancı Museum collection,
-put the image in `public/paintings/` (long side about 1280 px) and add an entry
-to `PAINTINGS` in `src/config.js`.
-
-## 8. Curve export format (Part D)
-
-See the comment at the top of `src/scene/curveExport.js`. Control points are in
-normalised painting coordinates (u, v ∈ [0, 1], origin top-left, v down).
-
-## 9. Troubleshooting
-
-- **"This browser has no WebGPU"**: update the browser; serve from `localhost`
-  (opening `index.html` as a file does not work). Linux Chrome may need
+- **"This browser has no WebGPU"**: update the browser and serve from `localhost`
+  (opening `index.html` as a file does not work). Chrome on Linux may need
   `chrome://flags/#enable-unsafe-webgpu` and `#enable-vulkan`.
-- **Black or blank canvas, no error on the page**: open the browser console. WGSL
-  errors are printed with line numbers that match your `.wgsl` file.
-- **Everything is too dark or washed out**: you encoded sRGB twice, or not at all.
-  Return `toOutput(linearColour)`; do not apply gamma yourself.
-- **Objects disappear when the camera moves**: check near/far and that your
-  perspective maps depth to [0, 1], not [−1, 1].
+- **Blank canvas**: open the browser console. WGSL errors are printed with line numbers.
