@@ -123,10 +123,6 @@ export function createScene({ gpu, renderer, painting, panel }) {
       }
 
       let tan = this.curve.tangent(state.t)
-      if (state.curveKind == "catmull-rom") {
-        tan[0] = 2 * this.curve.painting.aspect * tan[0]
-        tan[1] = -2 * tan[1]
-      }
       let theta = Math.atan2(tan[1], tan[0])
       let point = this.curve.evaluate(state.t)
       tangent.local = mat4.rotateZ(theta)

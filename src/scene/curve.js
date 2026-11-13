@@ -408,6 +408,10 @@ export class CatmullRomCurve extends Curve {
         let c = this.segmentPoints(i)
 
         let p = curves.catmullRomToCubicBezier(c[0], c[1], c[2], c[3])
-        return curves.cubicBezierTangent(p[0], p[1], p[2], p[3], t)
+
+        let tan = curves.cubicBezierTangent(p[0], p[1], p[2], p[3], t)
+        tan[0] = 2 * this.painting.aspect * tan[0]
+        tan[1] = -2 * tan[1]
+        return tan
     }
 }
