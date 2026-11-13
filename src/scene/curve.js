@@ -370,12 +370,12 @@ export class CatmullRomCurve extends Curve {
         let p3 = [0, 0]
 
         if (i - 1 < 0)
-            p0 = curves.c1NextControl(p2, p1)
+            p0 = this.controlPoints[i]
         else
             p0 = this.controlPoints[i - 1]
 
         if (i + 2 >= this.controlPoints.length)
-            p3 = curves.c1NextControl(p1, p2)
+            p3 = this.controlPoints[i + 1]
         else
             p3 = this.controlPoints[i + 2]
 
