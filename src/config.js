@@ -7,6 +7,7 @@
  * an entry below. Keep the long side at about 1280 px.
  */
 export const PAINTINGS = [
+  { id: 'naturmort', file: 'naturmort.jpg', artist: 'İlhami Demirci', title: 'Natürmort' },
   { id: 'kavunlu', file: 'kavunlu.jpg', artist: 'Şeker Ahmed Paşa', title: 'Kavunlu Natürmort' },
   { id: 'kabatas', file: 'kabatas.jpg', artist: 'Feyhaman Duran', title: 'Kabataş Rıhtımı (1936)' },
   { id: 'moda', file: 'moda.jpg', artist: 'Hoca Ali Rıza', title: 'Moda İskelesi' },
@@ -14,6 +15,6 @@ export const PAINTINGS = [
   { id: 'ormanda-karaca', file: 'ormanda-karaca.jpg', artist: 'Şeker Ahmed Paşa', title: 'Ormanda Karaca' },
 ];
 
-export const DEFAULT_PAINTING = 'kavunlu';
+export const DEFAULT_PAINTING = 'naturmort';
 
 export const paintingURL = (p) => `${import.meta.env.BASE_URL}paintings/${p.file}`;
