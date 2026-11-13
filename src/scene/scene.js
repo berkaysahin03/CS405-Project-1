@@ -29,18 +29,24 @@ import { mat4, SceneNode } from "./node.js";
 import * as drawable from "./drawable.js"
 import * as geometry from "./geometry.js"
 import * as line from "../render/line.js"
-import { Curve } from "./curve.js";
+import { BezierCurve, CatmullRomCurve } from "./curve.js";
 
 export function createScene({ gpu, renderer, painting, panel }) {
   const { device } = gpu;
   const state = {
     debugAxes: false,
+    curveKind: "bezier-c1",
   };
 
   // Example of wiring a control. Add a folder per part as you go.
   const f = panel.folder('Scene');
   f.toggle('debug axes', state, 'debugAxes');
   f.note('Add your objects in src/scene/scene.js.');
+
+  const fc = panel.folder("Curves")
+  fc.select("curve", ["bezier-c1", "catmull-rom"], state.curveKind, v => {
+    state.curveKind = v
+  })
 
   let root = new SceneNode("root")
   let cube = new drawable.Cube("cube", mat4.multiply(mat4.translate(0, -0.5, 1), mat4.scale(0.1, 0.1, 0.1)), gpu, (cube, dt, time) => {
@@ -58,8 +64,8 @@ export function createScene({ gpu, renderer, painting, panel }) {
     node.data.axes.setVertices(geometry.axes(1.5))
   })
 
-  let curve = new Curve(gpu, painting)
-  curve.setControlPoints([
+  let bezier = new BezierCurve(gpu, painting, [1, 0, 0])
+  bezier.setControlPoints([
     [0.10, 0.50], [0.20, 0.20], [0.30, 0.20],
     [0.40, 0.50],                // joint
     [0.50, 0.80], [0.55, 0.80],  // P4 = 2·P3 − P2
@@ -68,15 +74,20 @@ export function createScene({ gpu, renderer, painting, panel }) {
     [0.90, 0.50],
   ])
 
+  let catmullRom = new CatmullRomCurve(gpu, painting, [0, 0, 1])
+  catmullRom.setControlPoints(
+    [[0.10, 0.50], [0.25, 0.30], [0.40, 0.60], [0.55, 0.30], [0.70, 0.60], [0.90, 0.40]]
+  )
+
   return {
     state,
-    curve,
+    get curve() { return state.curveKind === "bezier-c1" ? bezier : catmullRom },
 
     update(dt, time) {
       // TODO: animate nodes, then root.updateWorld()
       cube.data.animate(dt, time)
       root.updateWorld()
-      curve.update()
+      this.curve.update()
     },
 
     /** @param {GPURenderPassEncoder} pass  @param {Float32Array} viewProj  P · V */
@@ -88,7 +99,7 @@ export function createScene({ gpu, renderer, painting, panel }) {
         }
       })
 
-      curve.draw(pass, viewProj, renderer)
+      this.curve.draw(pass, viewProj, renderer)
 
       if (state.debugAxes)
         root.traverse((node) => node.data.axes.draw(pass, viewProj, node.world, renderer))

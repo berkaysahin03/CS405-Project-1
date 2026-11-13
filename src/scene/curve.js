@@ -8,9 +8,10 @@ import * as mat4 from "../math/mat4.js"
 export class Curve {
     /**
      * @param {line.GPUHandle} gpu
-     * @param {Painting} painting  
+     * @param {Painting} painting
+     * @param {[number, number, number]} curveColor
      */
-    constructor(gpu, painting) {
+    constructor(gpu, painting, curveColor) {
         this.controlPoints = /** @type {[number, number][]} */ ([])
         this.line = new line.Line(gpu, "line-strip", "less")
         this.controlPolygon = new line.Line(gpu, "line-list", "less")
@@ -18,6 +19,7 @@ export class Curve {
         this.dirty = false
         this.painting = painting
         this.builtAspect = null
+        this.curveColor = curveColor
     }
 
     /**
@@ -85,6 +87,102 @@ export class Curve {
     }
 
     /**
+     * @param {[number, number][]} points 
+     * @param {number} z 
+     * @param {[number, number, number]} color
+     * @returns {Float32Array}
+     */
+    static pack(points, z, color) {
+        return new Float32Array(points.map(p => [...p, z, ...color]).flat())
+    }
+
+    update() {
+        if (!this.dirty && this.builtAspect == this.painting.aspect)
+            return
+
+        const N = 32 * this.segmentCount()
+        if (N == 0)
+            return
+
+        let points = []
+        for (let i = 0; i <= N; i++) {
+            points.push(this.evaluate(i / N))
+        }
+
+        let vertices = Curve.pack(points, 0.003, this.curveColor)
+        this.line.setVertices(vertices)
+
+        let control = []
+        for (let i = 0; i < this.controlPoints.length - 1; i++) {
+            control.push(this.toWorld(this.controlPoints[i]))
+            control.push(this.toWorld(this.controlPoints[i + 1]))
+        }
+
+        let controlVertices = Curve.pack(control, 0.003, [0.5, 0.5, 0.5])
+        this.controlPolygon.setVertices(controlVertices)
+
+        const SEGMENT_LENGTH = 0.05
+        const HALF_SEGMENT_LENGTH = SEGMENT_LENGTH / 2
+        const d = HALF_SEGMENT_LENGTH / Math.sqrt(2)
+
+        let controlPointIndicatorVertices = new Float32Array(
+            this.controlPoints.map((p, i) => {
+                return [...Curve.pack(
+                    [
+                        this.toWorld(curves.add(p, [ d / this.painting.aspect,  d])),
+                        this.toWorld(curves.add(p, [-d / this.painting.aspect, -d])),
+                        this.toWorld(curves.add(p, [-d / this.painting.aspect,  d])),
+                        this.toWorld(curves.add(p, [ d / this.painting.aspect, -d]))
+                    ],
+                    0.005,
+                    this.markerColor(i)
+                )]
+            }).flat()
+        )
+
+        this.controlPointIndicator.setVertices(controlPointIndicatorVertices)
+
+        this.builtAspect = this.painting.aspect
+        this.dirty = false
+    }
+
+    /**
+     * @param {GPURenderPassEncoder} pass
+     * @param {mat4.Mat4} viewProj
+     * @param {renderer.Renderer} renderer  
+     */
+    draw(pass, viewProj, renderer) {
+        this.line.draw(pass, viewProj, mat4.identity(), renderer)
+        this.controlPolygon.draw(pass, viewProj, mat4.identity(), renderer)
+        this.controlPointIndicator.draw(pass, viewProj, mat4.identity(), renderer)
+    }
+
+    /**
+     * @returns {number}
+     */
+    segmentCount() { throw new Error("Curve.segmentCount is abstract") }
+
+    /**
+     * @param {number} u
+     * @returns {[number, number]}
+     */
+    evaluate(u) { throw new Error("Curve.evaluate is abstract") }
+
+    /**
+     * @param {number} i
+     * @returns {[number, number, number]}
+     */
+    markerColor(i) { throw new Error("Curve.markerColor is abstract") }
+
+    /**
+     * @param {number} i 
+     * @param {[number, number]} uv 
+     */
+    movePoint(i, uv) { throw new Error("Curve.movePoint is abstract") }
+}
+
+export class BezierCurve extends Curve {
+    /**
      * @param {number} i 
      * @param {[number, number]} uv 
      */
@@ -124,7 +222,6 @@ export class Curve {
      * @param {[number, number]} uv 
      */
     movePoint(i, uv) {
-
         switch (i % 3) {
         case 0: this.moveJoint(i, uv); break
         case 1: this.moveAfterJoint(i, uv); break
@@ -153,78 +250,80 @@ export class Curve {
     }
 
     /**
-     * @param {[number, number][]} points 
-     * @param {number} z 
-     * @param {[number, number, number]} color
-     * @returns {Float32Array}
+     * @param {number} i
+     * @returns {[number, number, number]}
      */
-    static pack(points, z, color) {
-        return new Float32Array(points.map(p => [...p, z, ...color]).flat())
-    }
-
-    update() {
-        if (!this.dirty && this.builtAspect == this.painting.aspect)
-            return
-
-        const segments = this.segments()
-        const n = segments.length
-        if (n == 0)
-            return
-        const N = 32 * n
-
-        let points = []
-        for (let i = 0; i <= N; i++) {
-            points.push(curves.evalPiecewise(segments, i / N))
-        }
-
-        let vertices = Curve.pack(points, 0.003, [1, 0, 0])
-        this.line.setVertices(vertices)
-
-        let control = []
-        for (let i = 0; i < this.controlPoints.length - 1; i++) {
-            control.push(this.toWorld(this.controlPoints[i]))
-            control.push(this.toWorld(this.controlPoints[i + 1]))
-        }
-
-        let controlVertices = Curve.pack(control, 0.003, [0.5, 0.5, 0.5])
-        this.controlPolygon.setVertices(controlVertices)
-
+    markerColor(i) {
         const JOINT_COLOR = /** @type {[number, number, number]} */ ([1, 1, 0])
         const HANDLE_COLOR = /** @type {[number, number, number]} */ ([0, 1, 0])
-        const SEGMENT_LENGTH = 0.05
-        const HALF_SEGMENT_LENGTH = SEGMENT_LENGTH / 2
-        const d = HALF_SEGMENT_LENGTH / Math.sqrt(2)
-
-        let controlPointIndicatorVertices = new Float32Array(
-            this.controlPoints.map((p, i) => {
-                let color = i % 3 == 0 ? JOINT_COLOR : HANDLE_COLOR
-                return [...Curve.pack(
-                    [
-                        this.toWorld(curves.add(p, [ d / this.painting.aspect,  d])),
-                        this.toWorld(curves.add(p, [-d / this.painting.aspect, -d])),
-                        this.toWorld(curves.add(p, [-d / this.painting.aspect,  d])),
-                        this.toWorld(curves.add(p, [ d / this.painting.aspect, -d]))
-                    ],
-                    0.005,
-                    color
-                )]
-            }).flat()
-        )
-
-        this.controlPointIndicator.setVertices(controlPointIndicatorVertices)
-
-        this.builtAspect = this.painting.aspect
-        this.dirty = false
+        return i % 3 == 0 ? JOINT_COLOR : HANDLE_COLOR
     }
 
     /**
-     * @param {GPURenderPassEncoder} pass
-     * @param {mat4.Mat4} viewProj
-     * @param {renderer.Renderer} renderer  
+     * @returns {number}
      */
-    draw(pass, viewProj, renderer) {
-        this.line.draw(pass, viewProj, mat4.identity(), renderer)
-        this.controlPolygon.draw(pass, viewProj, mat4.identity(), renderer)
-        this.controlPointIndicator.draw(pass, viewProj, mat4.identity(), renderer)
+    segmentCount() {
+        return this.segments().length
     }
-} 
+
+    /**
+     * @param {number} u
+     * @returns {[number, number]}
+     */
+    evaluate(u) {
+        const segments = this.segments()
+        return curves.evalPiecewise(segments, u)
+    }
+}
+
+export class CatmullRomCurve extends Curve {
+    /**
+     * @returns {number}
+     */
+    segmentCount() {
+        return this.controlPoints.length < 2 ? 0 : this.controlPoints.length - 1
+    }
+
+    /**
+     * @param {number} u
+     * @returns {[number, number]}
+     */
+    evaluate(u) {
+        let n = this.segmentCount()
+        let s = curves.clamp(u, 0, 1) * n
+        let i = Math.min(Math.floor(s), n - 1)
+        let t = s - i
+
+        let p0 = [0, 0]
+        let p1 = this.controlPoints[i]
+        let p2 = this.controlPoints[i + 1]
+        let p3 = [0, 0]
+
+        if (i - 1 < 0)
+            p0 = curves.c1NextControl(p2, p1)
+        else
+            p0 = this.controlPoints[i - 1]
+
+        if (i + 2 >= this.controlPoints.length)
+            p3 = curves.c1NextControl(p1, p2)
+        else
+            p3 = this.controlPoints[i + 2]
+
+        return this.toWorld(curves.catmullRom(p0, p1, p2, p3, t))
+    }
+
+    /**
+     * @param {number} i
+     * @returns {[number, number, number]}
+     */
+    markerColor(i) { return [1, 1, 0] }
+
+    /**
+     * @param {number} i 
+     * @param {[number, number]} uv 
+     */
+    movePoint(i, uv) {
+        this.controlPoints[i] = uv
+        this.dirty = true
+    }
+}
