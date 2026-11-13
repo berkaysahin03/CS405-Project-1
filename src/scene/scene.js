@@ -50,6 +50,22 @@ export function createScene({ gpu, renderer, painting, panel }) {
   f.toggle('debug axes', state, 'debugAxes');
   f.note('Add your objects in src/scene/scene.js.');
 
+  const fm = panel.folder("Model matrix")
+  let useSRT = fm.toggle("Use SRT", state, "useSRT")
+  fm.note("TRS")
+  let { set: setTRSModel } = fm.text()
+  fm.note("SRT")
+  let { set: setSRTModel } = fm.text()
+  let txSlider = fm.slider("tx", state.bookTranslate, "0", -1, 1, 0.01)
+  let tySlider = fm.slider("ty", state.bookTranslate, "1", -1, 1, 0.01)
+  let tzSlider = fm.slider("tz", state.bookTranslate, "2", -1, 1, 0.01)
+  let sxSlider = fm.slider("sx", state.bookScale, "0", 0.05, 1, 0.01)
+  let sySlider = fm.slider("sy", state.bookScale, "1", 0.05, 1, 0.01)
+  let szSlider = fm.slider("sz", state.bookScale, "2", 0.05, 1, 0.01)
+  let yawSlider = fm.slider("yaw", state.bookRotate, "1", 0, Math.PI, 0.01)
+  let pitchSlider = fm.slider("pitch", state.bookRotate, "0", 0, Math.PI, 0.01)
+  let rollSlider = fm.slider("roll", state.bookRotate, "2", 0, Math.PI, 0.01)
+
   const fc = panel.folder("Curves")
   fc.select("curve", ["bezier-c1", "catmull-rom"], state.curveKind, v => {
     state.curveKind = v
@@ -63,12 +79,80 @@ export function createScene({ gpu, renderer, painting, panel }) {
   let { set, el } = fd.text()
 
   let root = new SceneNode("root")
-  let cube = new drawable.Cube("cube", mat4.multiply(mat4.translate(0, -0.5, 1), mat4.scale(0.1, 0.1, 0.1)), gpu, (cube, dt, time) => {
-    cube.local = mat4.multiply(mat4.translate(Math.cos(time/2)*dt/4, Math.sin(time/2)*dt/4, Math.sin(time)*dt/2), cube.local)
-    cube.local = mat4.multiply(cube.local, mat4.rotateX(dt))
-    cube.local = mat4.multiply(cube.local, mat4.rotateY(dt))
-  })
-  let small = new drawable.Cube("small", mat4.multiply(mat4.translate(0.0, 0.0, 1.0), mat4.scale(0.5, 0.5, 0.5)), gpu)
+
+  let coffeeCup = new SceneNode("coffee-cup", mat4.translate(-0.27, -0.7, 0.5))
+  let cupLocal = mat4.multiply(
+    mat4.translate(0, 0.05, 0),
+    mat4.scale(0.15, 0.15, 0.15)
+  )
+  let cup = new drawable.Cube("cup", cupLocal, gpu)
+  let plateLocal = mat4.multiply(
+    mat4.translate(0, -0.02, 0),
+    mat4.scale(0.4, 0.01, 0.4)
+  )
+  let plate = new drawable.Cube("plate", plateLocal, gpu)
+  coffeeCup.addChild(cup)
+  coffeeCup.addChild(plate)
+
+  let flowerPot = new SceneNode("flower-pot", mat4.translate(-0.1, 0, 0.2))
+  let potLowerLocal = mat4.multiply(
+    mat4.translate(0, -0.2, 0),
+    mat4.scale(0.35, 0.6, 0.35)
+  )
+  const LEAF_DEFAULT_ANGLE = 0.15
+  let leafAngle = LEAF_DEFAULT_ANGLE
+  let leafTranslate = mat4.translate(-0.113, 0.106, 0.0)
+  let leafLowerLocal = mat4.multiply(
+    leafTranslate,
+    mat4.rotateZ(leafAngle)
+  )
+  let leafLower = new SceneNode("leaf-lower", leafLowerLocal)
+  let leafLowerBodyLocal = mat4.multiply(
+    mat4.translate(0, 0.115, 0),
+    mat4.scale(0.01, 0.23, 0.01)
+  )
+  let leafLowerBody = new drawable.Cube("leaf-lower-body", leafLowerBodyLocal, gpu)
+
+  let leafUpperLocal = mat4.multiply(
+    mat4.translate(-0.23, 0.335, 0.0),
+    mat4.multiply(
+      mat4.rotateZ(-0.4),
+      mat4.scale(0.5, 0.01, 0.1)
+    )
+  )
+  let leafUpper = new drawable.Cube("leaf-upper", leafUpperLocal, gpu)
+  let potLower = new drawable.Cube("pot-lower", potLowerLocal, gpu)
+  flowerPot.addChild(potLower)
+  flowerPot.addChild(leafLower)
+  leafLower.addChild(leafLowerBody)
+  leafLower.addChild(leafUpper)
+
+  let matTranslate = mat4.translate(state.bookTranslate[0], state.bookTranslate[1], state.bookTranslate[2])
+  let matScale = mat4.scale(state.bookScale[0], state.bookScale[1], state.bookScale[2])
+  let matRotate = mat4.multiply(
+    mat4.rotateY(state.bookRotate[1]),
+    mat4.multiply(
+      mat4.rotateX(state.bookRotate[0]),
+      mat4.rotateZ(state.bookRotate[2]),
+    )
+  )
+  let bookLocalTRS = mat4.multiply(
+    matTranslate,
+    mat4.multiply(
+      matRotate,
+      matScale
+    )
+  )
+  let bookLocalSRT = mat4.multiply(
+    matScale,
+    mat4.multiply(
+      matRotate,
+      matTranslate
+    )
+  )
+
+  let bookLocal = bookLocalTRS
+  let book = new drawable.Cube("book", bookLocal, gpu)
 
   let tangent = new SceneNode("tangent", mat4.identity())
   let tangentBody = new drawable.Cube("tangentBody", mat4.scale(0.12, 0.04, 0.04), gpu)
@@ -76,7 +160,9 @@ export function createScene({ gpu, renderer, painting, panel }) {
   tangent.addChild(tangentBody)
   tangent.addChild(tangentNose)
 
-  root.addChild(cube)
+  root.addChild(coffeeCup)
+  root.addChild(book)
+  root.addChild(flowerPot)
   root.addChild(tangent)
   cube.addChild(small)
 
@@ -122,11 +208,51 @@ export function createScene({ gpu, renderer, painting, panel }) {
         state.lastTime = time
       }
 
+      matTranslate = mat4.translate(state.bookTranslate[0], state.bookTranslate[1], state.bookTranslate[2])
+      matScale = mat4.scale(state.bookScale[0], state.bookScale[1], state.bookScale[2])
+      matRotate = mat4.multiply(
+        mat4.rotateY(state.bookRotate[1]),
+        mat4.multiply(
+          mat4.rotateX(state.bookRotate[0]),
+          mat4.rotateZ(state.bookRotate[2]),
+        )
+      )
+
+      bookLocalTRS = mat4.multiply(
+        matTranslate,
+        mat4.multiply(
+          matRotate,
+          matScale
+        )
+      )
+      bookLocalSRT = mat4.multiply(
+        matScale,
+        mat4.multiply(
+          matRotate,
+          matTranslate
+        )
+      )
+
+      if (state.useSRT) {
+        book.local = bookLocalSRT
+      } else {
+        book.local = bookLocalTRS
+      }
+
+      setTRSModel(mat4.format(bookLocalTRS))
+      setSRTModel(mat4.format(bookLocalSRT))
+
       let tan = this.curve.tangent(state.t)
       let theta = Math.atan2(tan[1], tan[0])
       let point = this.curve.evaluate(state.t)
       tangent.local = mat4.rotateZ(theta)
       tangent.local = mat4.multiply(mat4.translate(point[0], point[1], 0.02), tangent.local)
+
+      leafAngle = 0.12 * Math.sin(Math.PI * 0.5 * time) + LEAF_DEFAULT_ANGLE
+      leafLower.local = mat4.multiply(
+        leafTranslate,
+        mat4.rotateZ(leafAngle)
+      )
 
       root.updateWorld()
       this.curve.update()
