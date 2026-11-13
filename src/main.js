@@ -63,7 +63,7 @@ async function main() {
 
   const cf = panel.folder('Camera');
   const camStatus = cf.text('');
-  cf.select('projection', ['perspective', 'orthographic'], camera.projection, (v) => (camera.projection = v));
+  let projSelect = cf.select('projection', ['perspective', 'orthographic'], camera.projection, (v) => (camera.projection = v));
   const camReadout = cf.text('');
 
   const scene = createScene({ gpu, renderer, painting, panel });
@@ -71,8 +71,18 @@ async function main() {
   pf.button('Export curve JSON', () =>
     downloadJSON(curveToJSON(scene.curve, current.id), `${current.id}-${scene.curve.kind}.json`))
 
+  let view = "main"
   const vf = panel.folder('View');
-  vf.button('reset', () => { Object.assign(camera, createCamera()); scene.reset(); });
+  let viewSelect = vf.select("View select", ["main", "inspection"], view, v => (view = v))
+  vf.button('reset', () => {
+    Object.assign(camera, createCamera());
+    camera.near = CAMERA_NEAR
+    camera.far = CAMERA_FAR
+    projSelect.set(camera.projection)
+    view = "main"
+    viewSelect.set(view)
+    scene.reset();
+  });
   vf.note(gpu.encodeSRGB ? 'sRGB: encoded in shader (fallback)' : 'sRGB: canvas -srgb view');
 
   /* -------------- input --------------- */

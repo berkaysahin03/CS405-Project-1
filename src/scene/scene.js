@@ -32,6 +32,10 @@ import * as line from "../render/line.js"
 import { BezierCurve, CatmullRomCurve } from "./curve.js";
 import * as curves from "../math/curves.js"
 
+const BOOK_TRANSLATE_DEFAULT = [0.53, -0.47, 0.3]
+const BOOK_SCALE_DEFAULT = [0.44, 0.09, 0.27]
+const BOOK_ROTATE_DEFAULT = [0.5, 0.7, 0.25]
+
 export function createScene({ gpu, renderer, painting, panel }) {
   const { device } = gpu;
   const state = {
@@ -42,7 +46,11 @@ export function createScene({ gpu, renderer, painting, panel }) {
     move: false,
     lastT: 0,
     lastTime: 0,
-    showConstruction: false
+    showConstruction: false,
+    useSRT: false,
+    bookTranslate: [...BOOK_TRANSLATE_DEFAULT],
+    bookScale: [...BOOK_SCALE_DEFAULT],
+    bookRotate: [...BOOK_ROTATE_DEFAULT]
   };
 
   // Example of wiring a control. Add a folder per part as you go.
@@ -67,16 +75,16 @@ export function createScene({ gpu, renderer, painting, panel }) {
   let rollSlider = fm.slider("roll", state.bookRotate, "2", 0, Math.PI, 0.01)
 
   const fc = panel.folder("Curves")
-  fc.select("curve", ["bezier-c1", "catmull-rom"], state.curveKind, v => {
+  let curveSelect = fc.select("curve", ["bezier-c1", "catmull-rom"], state.curveKind, v => {
     state.curveKind = v
   })
   let tSlider = fc.slider("t", state, "t", 0, 1, 0.001)
-  fc.toggle("Move point with time", state, "move")
+  let tToggle = fc.toggle("Move point with time", state, "move")
 
   const fd = panel.folder("De Casteljau Construction")
   fd.toggle("Show construction", state, "showConstruction")
-  fd.slider("u", state, "u", 0, 1, 0.001)
-  let { set, el } = fd.text()
+  let uSlider = fd.slider("u", state, "u", 0, 1, 0.001)
+  let { set: setU, el } = fd.text()
 
   let root = new SceneNode("root")
 
@@ -164,7 +172,6 @@ export function createScene({ gpu, renderer, painting, panel }) {
   root.addChild(book)
   root.addChild(flowerPot)
   root.addChild(tangent)
-  cube.addChild(small)
 
   root.traverse((node) => {
     node.data.axes = new line.Line(gpu, "line-list", "always")
@@ -214,10 +221,9 @@ export function createScene({ gpu, renderer, painting, panel }) {
 
     update(dt, time) {
       // TODO: animate nodes, then root.updateWorld()
-      cube.data.animate(dt, time)
 
       let [i, t] = curves.mapToSegmentIndex(bezier.segmentCount(), state.u)
-      set("segment = " + i + ", t = " + t.toFixed(3))
+      setU("segment = " + i + ", t = " + t.toFixed(3))
       if (state.curveKind === "bezier-c1" && state.showConstruction)
         bezier.updateDeCasteljau(state.u)
 
@@ -299,7 +305,33 @@ export function createScene({ gpu, renderer, painting, panel }) {
     },
 
     reset() {
-      // TODO: put every object (and the camera, in main.js) back where it started
+      Object.assign(state.bookTranslate, BOOK_TRANSLATE_DEFAULT)
+      Object.assign(state.bookScale, BOOK_SCALE_DEFAULT)
+      Object.assign(state.bookRotate, BOOK_ROTATE_DEFAULT)
+      txSlider.update()
+      tySlider.update()
+      tzSlider.update()
+      sxSlider.update()
+      sySlider.update()
+      szSlider.update()
+      yawSlider.update()
+      pitchSlider.update()
+      rollSlider.update()
+      state.move = false
+      tToggle.update()
+      state.t = 0
+      tSlider.update()
+      state.u = 0
+      uSlider.update()
+
+      state.useSRT = false
+      useSRT.update()
+
+      state.curveKind = "bezier-c1"
+      curveSelect.set(state.curveKind)
+
+      bezier.setControlPoints([...BEZIER_TRACE])
+      catmullRom.setControlPoints([...CATMULLROM_TRACE])
     },
   };
 }
