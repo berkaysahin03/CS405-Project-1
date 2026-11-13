@@ -123,6 +123,7 @@ async function main() {
       const HIGH_FOV_LIMIT = radians(120)
       camera.fovY += SCROLL_SPEED * e.delta
       camera.fovY = clamp(camera.fovY, LOW_FOV_LIMIT, HIGH_FOV_LIMIT)
+      camera.orthoHeight = 2 * camera.r * Math.tan(camera.fovY/2)
     },
     down(/** @type {ButtonInfo} */ e) {
       if (e.button !== 0) {
