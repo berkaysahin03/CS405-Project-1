@@ -81,15 +81,24 @@ export function c1NextControl(p2, p3) {
 export let clamp = (v, a, b) => Math.min(Math.max(v, a), b)
 
 /**
+ * @param {number} n
+ * @param {number} u
+ * @returns {[number, number]}
+ */
+export function mapToSegmentIndex(n, u) {
+  let s = clamp(u, 0, 1) * n
+  let i = Math.min(Math.floor(s), n - 1)
+  let t = s - i
+  return [i, t]
+}
+
+/**
  * Evaluate a piecewise cubic Bézier at a global parameter u ∈ [0, 1] that
  * runs over the whole curve: with n segments, segment i covers
  * u ∈ [i/n, (i+1)/n]. u = 0 is the first P0, u = 1 the last P3.
  */
 export function evalPiecewise(segments, u) {
-  let n = segments.length
-  let s = clamp(u, 0, 1) * n
-  let i = Math.min(Math.floor(s), n - 1)
-  let t = s - i
+  let [i, t] = mapToSegmentIndex(segments.length, u)
   let [p0, p1, p2, p3] = segments[i]
   return cubicBezier(p0, p1, p2, p3, t);
 }
@@ -98,19 +107,29 @@ export function evalPiecewise(segments, u) {
 /* The tests skip whichever of the two you leave as a TODO, and fail only   */
 /* if you implement neither.                                                */
 
+export function catmullRomToCubicBezier(p0, p1, p2, p3) {
+  let m1 = scale(sub(p2, p0), 1/2)
+  let m2 = scale(sub(p3, p1), 1/2)
+
+  return [
+    p1,
+    add(p1, scale(m1, 1/3)),
+    sub(p2, scale(m2, 1/3)),
+    p2
+  ]
+}
+
 /**
  * Uniform Catmull–Rom: the segment between p1 and p2 (passes through both),
  * t ∈ [0, 1], with tangents (p2 − p0)/2 at p1 and (p3 − p1)/2 at p2.
  */
 export function catmullRom(p0, p1, p2, p3, t) {
-  let m1 = scale(sub(p2, p0), 1/2)
-  let m2 = scale(sub(p3, p1), 1/2)
-
+  let p = catmullRomToCubicBezier(p0, p1, p2, p3)
   return cubicBezier(
-    p1,
-    add(p1, scale(m1, 1/3)),
-    sub(p2, scale(m2, 1/3)),
-    p2,
+    p[0],
+    p[1],
+    p[2],
+    p[3],
     t
   );
 }

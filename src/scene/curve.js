@@ -96,6 +96,21 @@ export class Curve {
         return new Float32Array(points.map(p => [...p, z, ...color]).flat())
     }
 
+    cross(worldPoint, z, size, color) {
+        const HALF_SEGMENT_LENGTH = size / 2
+        const d = HALF_SEGMENT_LENGTH / Math.sqrt(2)
+        return [...Curve.pack(
+            [
+                curves.add(worldPoint, [ d,  d]),
+                curves.add(worldPoint, [-d, -d]),
+                curves.add(worldPoint, [-d,  d]),
+                curves.add(worldPoint, [ d, -d])
+            ],
+            z,
+            color
+        )]
+    }
+
     update() {
         if (!this.dirty && this.builtAspect == this.painting.aspect)
             return
@@ -122,22 +137,9 @@ export class Curve {
         this.controlPolygon.setVertices(controlVertices)
 
         const SEGMENT_LENGTH = 0.05
-        const HALF_SEGMENT_LENGTH = SEGMENT_LENGTH / 2
-        const d = HALF_SEGMENT_LENGTH / Math.sqrt(2)
 
         let controlPointIndicatorVertices = new Float32Array(
-            this.controlPoints.map((p, i) => {
-                return [...Curve.pack(
-                    [
-                        this.toWorld(curves.add(p, [ d / this.painting.aspect,  d])),
-                        this.toWorld(curves.add(p, [-d / this.painting.aspect, -d])),
-                        this.toWorld(curves.add(p, [-d / this.painting.aspect,  d])),
-                        this.toWorld(curves.add(p, [ d / this.painting.aspect, -d]))
-                    ],
-                    0.005,
-                    this.markerColor(i)
-                )]
-            }).flat()
+            this.controlPoints.map((p, i) => this.cross(this.toWorld(p), 0.005, SEGMENT_LENGTH, this.markerColor(i))).flat()
         )
 
         this.controlPointIndicator.setVertices(controlPointIndicatorVertices)
@@ -168,6 +170,13 @@ export class Curve {
      */
     evaluate(u) { throw new Error("Curve.evaluate is abstract") }
 
+
+    /**
+     * @param {number} u
+     * @returns {[number, number]}
+     */
+    tangent(u) { throw new Error("Curve.tangent is abstract") }
+
     /**
      * @param {number} i
      * @returns {[number, number, number]}
@@ -182,6 +191,16 @@ export class Curve {
 }
 
 export class BezierCurve extends Curve {
+    /**
+     * @param {line.GPUHandle} gpu
+     * @param {Painting} painting
+     * @param {[number, number, number]} curveColor
+     */
+    constructor(gpu, painting, curveColor) {
+        super(gpu, painting, curveColor)
+        this.deCasteljauLine = new line.Line(gpu, "line-list", "less")
+    }
+
     /**
      * @param {number} i 
      * @param {[number, number]} uv 
@@ -274,6 +293,54 @@ export class BezierCurve extends Curve {
         const segments = this.segments()
         return curves.evalPiecewise(segments, u)
     }
+
+    /**
+     * @param {number} u
+     * @returns {[number, number]}
+     */
+    tangent(u) {
+        const segments = this.segments()
+        let [i, t] = curves.mapToSegmentIndex(segments.length, u)
+        let p = segments[i]
+        return curves.cubicBezierTangent(p[0], p[1], p[2], p[3], t)
+    }
+
+    updateDeCasteljau(u) {
+        const LEVEL_COLORS = /** @type {[number, number, number][]} */ ([
+          [0.0, 0.8, 1.0],   // level 0: the current segment's control polygon (cyan)
+          [1.0, 0.0, 1.0],   // level 1: magenta
+          [1.0, 0.25, 0.0],  // level 2: orange
+          [1.0, 1.0, 1.0],   // level 3: the point on the curve (white)
+        ])
+
+        const segments = this.segments()
+        let [i, t] = curves.mapToSegmentIndex(segments.length, u)
+        let list = curves.deCasteljau(segments[i], t)
+        let vertices =  []
+        for (let [j, l] of list.entries()) {
+            for (let k = 0; k < l.length - 1; k++) {
+                let line = Curve.pack(
+                    [l[k], l[k + 1]],
+                    0.006,
+                    LEVEL_COLORS[j % LEVEL_COLORS.length]
+                )
+                vertices = [...vertices, ...line]
+            }
+        }
+        let point = list[list.length - 1][0]
+        let pointVertices = this.cross(point, 0.006, 0.05, LEVEL_COLORS[(list.length - 1) % LEVEL_COLORS.length])
+        this.deCasteljauLine.setVertices(new Float32Array([...vertices, ...pointVertices]))
+    }
+
+
+    /**
+     * @param {GPURenderPassEncoder} pass
+     * @param {mat4.Mat4} viewProj
+     * @param {renderer.Renderer} renderer  
+     */
+    drawDeCasteljau(pass, viewProj, renderer) {
+        this.deCasteljauLine.draw(pass, viewProj, mat4.identity(), renderer)
+    }
 }
 
 export class CatmullRomCurve extends Curve {
@@ -284,15 +351,7 @@ export class CatmullRomCurve extends Curve {
         return this.controlPoints.length < 2 ? 0 : this.controlPoints.length - 1
     }
 
-    /**
-     * @param {number} u
-     * @returns {[number, number]}
-     */
-    evaluate(u) {
-        let n = this.segmentCount()
-        let s = curves.clamp(u, 0, 1) * n
-        let i = Math.min(Math.floor(s), n - 1)
-        let t = s - i
+    segmentPoints(i) {
 
         let p0 = [0, 0]
         let p1 = this.controlPoints[i]
@@ -309,7 +368,19 @@ export class CatmullRomCurve extends Curve {
         else
             p3 = this.controlPoints[i + 2]
 
-        return this.toWorld(curves.catmullRom(p0, p1, p2, p3, t))
+        return [p0, p1, p2, p3]
+    }
+
+    /**
+     * @param {number} u
+     * @returns {[number, number]}
+     */
+    evaluate(u) {
+        let n = this.segmentCount()
+        let [i, t] = curves.mapToSegmentIndex(n, u)
+        let p = this.segmentPoints(i)
+
+        return this.toWorld(curves.catmullRom(p[0], p[1], p[2], p[3], t))
     }
 
     /**
@@ -325,5 +396,18 @@ export class CatmullRomCurve extends Curve {
     movePoint(i, uv) {
         this.controlPoints[i] = uv
         this.dirty = true
+    }
+
+    /**
+     * @param {number} u
+     * @returns {[number, number]}
+     */
+    tangent(u) {
+        let n = this.segmentCount()
+        let [i, t] = curves.mapToSegmentIndex(n, u)
+        let c = this.segmentPoints(i)
+
+        let p = curves.catmullRomToCubicBezier(c[0], c[1], c[2], c[3])
+        return curves.cubicBezierTangent(p[0], p[1], p[2], p[3], t)
     }
 }

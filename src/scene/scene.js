@@ -30,12 +30,19 @@ import * as drawable from "./drawable.js"
 import * as geometry from "./geometry.js"
 import * as line from "../render/line.js"
 import { BezierCurve, CatmullRomCurve } from "./curve.js";
+import * as curves from "../math/curves.js"
 
 export function createScene({ gpu, renderer, painting, panel }) {
   const { device } = gpu;
   const state = {
     debugAxes: false,
     curveKind: "bezier-c1",
+    u: 0,
+    t: 0,
+    move: false,
+    lastT: 0,
+    lastTime: 0,
+    showConstruction: false
   };
 
   // Example of wiring a control. Add a folder per part as you go.
@@ -47,6 +54,13 @@ export function createScene({ gpu, renderer, painting, panel }) {
   fc.select("curve", ["bezier-c1", "catmull-rom"], state.curveKind, v => {
     state.curveKind = v
   })
+  let tSlider = fc.slider("t", state, "t", 0, 1, 0.001)
+  fc.toggle("Move point with time", state, "move")
+
+  const fd = panel.folder("De Casteljau Construction")
+  fd.toggle("Show construction", state, "showConstruction")
+  fd.slider("u", state, "u", 0, 1, 0.001)
+  let { set, el } = fd.text()
 
   let root = new SceneNode("root")
   let cube = new drawable.Cube("cube", mat4.multiply(mat4.translate(0, -0.5, 1), mat4.scale(0.1, 0.1, 0.1)), gpu, (cube, dt, time) => {
@@ -56,7 +70,14 @@ export function createScene({ gpu, renderer, painting, panel }) {
   })
   let small = new drawable.Cube("small", mat4.multiply(mat4.translate(0.0, 0.0, 1.0), mat4.scale(0.5, 0.5, 0.5)), gpu)
 
+  let tangent = new SceneNode("tangent", mat4.identity())
+  let tangentBody = new drawable.Cube("tangentBody", mat4.scale(0.12, 0.04, 0.04), gpu)
+  let tangentNose = new drawable.Cube("tangentNose", mat4.multiply(mat4.translate(0.08, 0, 0), mat4.scale(0.04, 0.02, 0.02)), gpu)
+  tangent.addChild(tangentBody)
+  tangent.addChild(tangentNose)
+
   root.addChild(cube)
+  root.addChild(tangent)
   cube.addChild(small)
 
   root.traverse((node) => {
@@ -86,6 +107,31 @@ export function createScene({ gpu, renderer, painting, panel }) {
     update(dt, time) {
       // TODO: animate nodes, then root.updateWorld()
       cube.data.animate(dt, time)
+
+      let [i, t] = curves.mapToSegmentIndex(bezier.segmentCount(), state.u)
+      set("segment = " + i + ", t = " + t.toFixed(3))
+      if (state.curveKind === "bezier-c1" && state.showConstruction)
+        bezier.updateDeCasteljau(state.u)
+
+      if (state.move) {
+        let deltat = (time - state.lastTime) / 10
+        state.t = (state.lastT + deltat - Math.floor(state.lastT + deltat))
+        tSlider.update(state.t)
+      } else {
+        state.lastT = state.t
+        state.lastTime = time
+      }
+
+      let tan = this.curve.tangent(state.t)
+      if (state.curveKind == "catmull-rom") {
+        tan[0] = 2 * this.curve.painting.aspect * tan[0]
+        tan[1] = -2 * tan[1]
+      }
+      let theta = Math.atan2(tan[1], tan[0])
+      let point = this.curve.evaluate(state.t)
+      tangent.local = mat4.rotateZ(theta)
+      tangent.local = mat4.multiply(mat4.translate(point[0], point[1], 0.02), tangent.local)
+
       root.updateWorld()
       this.curve.update()
     },
@@ -100,6 +146,9 @@ export function createScene({ gpu, renderer, painting, panel }) {
       })
 
       this.curve.draw(pass, viewProj, renderer)
+
+      if (state.curveKind === "bezier-c1" && state.showConstruction)
+        bezier.drawDeCasteljau(pass, viewProj, renderer)
 
       if (state.debugAxes)
         root.traverse((node) => node.data.axes.draw(pass, viewProj, node.world, renderer))
