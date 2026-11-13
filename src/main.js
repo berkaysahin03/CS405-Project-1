@@ -18,7 +18,10 @@ import { PAINTINGS, DEFAULT_PAINTING, paintingURL } from './config.js';
 import * as mat4 from './math/mat4.js';
 import * as vec3 from "./math/vec3.js"
 import * as curves from "./math/curves.js"
+import * as line from "./render/line.js"
 import { curveToJSON, downloadJSON } from './scene/curveExport';
+import { buildFrustum } from './scene/frustum';
+import { rayZIntersect } from './scene/rayIntersection';
 
 async function main() {
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('gfx'));
@@ -47,7 +50,17 @@ async function main() {
       history.replaceState(null, '', `?painting=${id}`);
     });
 
+  const CAMERA_NEAR = 0.5
+  const CAMERA_FAR = 4
   const camera = createCamera();
+  camera.near = CAMERA_NEAR
+  camera.far = CAMERA_FAR
+  const inspectionCamera = createCamera();
+  inspectionCamera.eye = [3.5, 2.5, 4.5]
+  inspectionCamera.target = [0, 0, 1]
+
+  let viewWireframe = new line.Line(gpu, "line-list", "less")
+
   const cf = panel.folder('Camera');
   const camStatus = cf.text('');
   cf.select('projection', ['perspective', 'orthographic'], camera.projection, (v) => (camera.projection = v));
@@ -140,7 +153,7 @@ async function main() {
         return
 
       dragIndex = scene.curve.hitTest(e.px, vp.matrix, W, H)
-      if (dragIndex > -1)
+      if (dragIndex > -1 && view === "main")
         mode = "point"
       else
         mode = "orbit"
@@ -182,6 +195,11 @@ async function main() {
     renderer.render((pass) => {
       painting.draw(pass, paintingMVP, renderer);
       scene.draw(pass, vp.matrix);
+      if (view === "inspection") {
+        let V = mat4.lookAt(camera.eye, camera.target, camera.up)
+        let Vinv = mat4.invertRigid(V)
+        viewWireframe.draw(pass, vp.matrix, Vinv, renderer)
+      }
     });
 
     stats.end(renderer.stats);
