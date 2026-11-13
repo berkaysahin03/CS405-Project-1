@@ -18,9 +18,7 @@
  * The painting quad spans x ∈ [−a, a], y ∈ [−1, 1] at z = 0 (a = image
  * width / height), so  u = (x + a) / (2a)  and  v = (1 − y) / 2.
  */
-import { todo } from '../math/todo.js';
 
-/** TODO (Part D): build the object above from your curve data. */
 export function curveToJSON(curve, paintingId) {
   let json = {}
   json.painting = paintingId

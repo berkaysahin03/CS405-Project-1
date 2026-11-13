@@ -56,7 +56,6 @@ export function createScene({ gpu, renderer, painting, panel }) {
   // Example of wiring a control. Add a folder per part as you go.
   const f = panel.folder('Scene');
   f.toggle('debug axes', state, 'debugAxes');
-  f.note('Add your objects in src/scene/scene.js.');
 
   const fm = panel.folder("Model matrix")
   let useSRT = fm.toggle("Use SRT", state, "useSRT")
@@ -288,7 +287,6 @@ export function createScene({ gpu, renderer, painting, panel }) {
 
     /** @param {GPURenderPassEncoder} pass  @param {Float32Array} viewProj  P · V */
     draw(pass, viewProj) {
-      // TODO: one draw per object, with  mvp = viewProj · model
       root.traverse((node, depth) => {
         if (node instanceof drawable.Drawable) {
           node.draw(pass, viewProj, renderer)

@@ -132,8 +132,6 @@ async function main() {
   }
 
   attachPointer(canvas, {
-    // TODO (Part C): orbit the camera on drag, zoom on wheel.
-    // TODO (Part D): pick / drag control points on the painting.
     drag(/** @type {DragInfo} */ e) {
       if (mode === "orbit")
         updateCamera(e)
