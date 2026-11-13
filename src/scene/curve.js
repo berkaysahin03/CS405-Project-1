@@ -22,6 +22,9 @@ export class Curve {
         this.curveColor = curveColor
     }
 
+    /** @returns {string} */
+    get kind() { throw Error("Curve.kind is abstract") }
+
     /**
      * @param {[number, number][]} points
      */
@@ -201,6 +204,8 @@ export class BezierCurve extends Curve {
         this.deCasteljauLine = new line.Line(gpu, "line-list", "less")
     }
 
+    get kind() { return "bezier-c1" }
+
     /**
      * @param {number} i 
      * @param {[number, number]} uv 
@@ -253,19 +258,23 @@ export class BezierCurve extends Curve {
     /**
      * @returns {[number, number][][]} 
      */
-    segments() {
+    segmentsUV() {
         if (this.controlPoints.length < 4 || (this.controlPoints.length - 1) % 3)
             return []
 
-        const points = this.controlPoints.map(p => this.toWorld(p))
-        const n = (points.length - 1) / 3
-
+        const n = (this.controlPoints.length - 1) / 3
         let segments = []
         for (let i = 0; i < n; i++) {
-            segments.push(points.slice(3 * i, 3 * i + 4))
+            segments.push(this.controlPoints.slice(3 * i, 3 * i + 4))
         }
-
         return segments
+    }
+
+    /**
+     * @returns {[number, number][][]} 
+     */
+    segments() {
+        return this.segmentsUV().map(l => l.map(p => this.toWorld(p)))
     }
 
     /**
@@ -344,6 +353,8 @@ export class BezierCurve extends Curve {
 }
 
 export class CatmullRomCurve extends Curve {
+    get kind() { return "catmull-rom" }
+
     /**
      * @returns {number}
      */

@@ -21,8 +21,22 @@
 import { todo } from '../math/todo.js';
 
 /** TODO (Part D): build the object above from your curve data. */
-export function curveToJSON(curve) {
-  return todo('curveToJSON');
+export function curveToJSON(curve, paintingId) {
+  let json = {}
+  json.painting = paintingId
+  json.kind = curve.kind
+  switch (curve.kind) {
+    case "bezier-c1":
+      json.segments = curve.segmentsUV()
+      break
+
+    case "catmull-rom":
+      json.points = [...curve.controlPoints]
+      break
+
+    default: throw Error("Unknown curve kind")
+  }
+  return json
 }
 
 /** Provided: save any object as a .json download in the browser. */

@@ -18,6 +18,7 @@ import { PAINTINGS, DEFAULT_PAINTING, paintingURL } from './config.js';
 import * as mat4 from './math/mat4.js';
 import * as vec3 from "./math/vec3.js"
 import * as curves from "./math/curves.js"
+import { curveToJSON, downloadJSON } from './scene/curveExport';
 
 async function main() {
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('gfx'));
@@ -53,6 +54,9 @@ async function main() {
   const camReadout = cf.text('');
 
   const scene = createScene({ gpu, renderer, painting, panel });
+
+  pf.button('Export curve JSON', () =>
+    downloadJSON(curveToJSON(scene.curve, current.id), `${current.id}-${scene.curve.kind}.json`))
 
   const vf = panel.folder('View');
   vf.button('reset', () => { Object.assign(camera, createCamera()); scene.reset(); });
