@@ -14,6 +14,7 @@ export class Curve {
         this.controlPoints = /** @type {[number, number][]} */ ([])
         this.line = new line.Line(gpu, "line-strip", "less")
         this.controlPolygon = new line.Line(gpu, "line-list", "less")
+        this.controlPointIndicator = new line.Line(gpu, "line-list", "less")
         this.dirty = false
         this.painting = painting
         this.builtAspect = null
@@ -84,6 +85,56 @@ export class Curve {
     }
 
     /**
+     * @param {number} i 
+     * @param {[number, number]} uv 
+     */
+    moveJoint(i, uv) {
+        let delta = curves.sub(uv, this.controlPoints[i])
+        this.controlPoints[i] = uv
+
+        if (i + 1 < this.controlPoints.length)
+            this.controlPoints[i + 1] = curves.add(this.controlPoints[i + 1], delta)
+
+        if (i - 1 >= 0)
+            this.controlPoints[i - 1] = curves.add(this.controlPoints[i - 1], delta)
+    }
+
+    /**
+     * @param {number} i 
+     * @param {[number, number]} uv 
+     */
+    moveBeforeJoint(i, uv) {
+        this.controlPoints[i] = uv
+        if (i + 2 < this.controlPoints.length)
+            this.controlPoints[i + 2] = curves.c1NextControl(this.controlPoints[i], this.controlPoints[i + 1])
+    }
+
+    /**
+     * @param {number} i 
+     * @param {[number, number]} uv 
+     */
+    moveAfterJoint(i, uv) {
+        this.controlPoints[i] = uv
+        if (i - 2 >= 0)
+            this.controlPoints[i - 2] = curves.c1NextControl(this.controlPoints[i], this.controlPoints[i - 1])
+    }
+
+    /**
+     * @param {number} i 
+     * @param {[number, number]} uv 
+     */
+    movePoint(i, uv) {
+
+        switch (i % 3) {
+        case 0: this.moveJoint(i, uv); break
+        case 1: this.moveAfterJoint(i, uv); break
+        case 2: this.moveBeforeJoint(i, uv); break
+        }
+
+        this.dirty = true
+    }
+
+    /**
      * @returns {[number, number][][]} 
      */
     segments() {
@@ -138,6 +189,30 @@ export class Curve {
         let controlVertices = Curve.pack(control, 0.003, [0.5, 0.5, 0.5])
         this.controlPolygon.setVertices(controlVertices)
 
+        const JOINT_COLOR = /** @type {[number, number, number]} */ ([1, 1, 0])
+        const HANDLE_COLOR = /** @type {[number, number, number]} */ ([0, 1, 0])
+        const SEGMENT_LENGTH = 0.05
+        const HALF_SEGMENT_LENGTH = SEGMENT_LENGTH / 2
+        const d = HALF_SEGMENT_LENGTH / Math.sqrt(2)
+
+        let controlPointIndicatorVertices = new Float32Array(
+            this.controlPoints.map((p, i) => {
+                let color = i % 3 == 0 ? JOINT_COLOR : HANDLE_COLOR
+                return [...Curve.pack(
+                    [
+                        this.toWorld(curves.add(p, [ d / this.painting.aspect,  d])),
+                        this.toWorld(curves.add(p, [-d / this.painting.aspect, -d])),
+                        this.toWorld(curves.add(p, [-d / this.painting.aspect,  d])),
+                        this.toWorld(curves.add(p, [ d / this.painting.aspect, -d]))
+                    ],
+                    0.005,
+                    color
+                )]
+            }).flat()
+        )
+
+        this.controlPointIndicator.setVertices(controlPointIndicatorVertices)
+
         this.builtAspect = this.painting.aspect
         this.dirty = false
     }
@@ -150,5 +225,6 @@ export class Curve {
     draw(pass, viewProj, renderer) {
         this.line.draw(pass, viewProj, mat4.identity(), renderer)
         this.controlPolygon.draw(pass, viewProj, mat4.identity(), renderer)
+        this.controlPointIndicator.draw(pass, viewProj, mat4.identity(), renderer)
     }
 } 

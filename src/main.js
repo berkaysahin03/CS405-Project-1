@@ -145,8 +145,7 @@ async function main() {
     let x = origin[0] + t * direction[0]
     let y = origin[1] + t * direction[1]
 
-    curve.controlPoints[dragIndex] = /** @type {[number, number]} */ (curve.fromWorld([x, y]).map(v => curves.clamp(v, 0, 1)))
-    curve.dirty = true
+    curve.movePoint(dragIndex, /** @type {[number, number]} */ (curve.fromWorld([x, y]).map(v => curves.clamp(v, 0, 1))))
   }
 
   attachPointer(canvas, {
