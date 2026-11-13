@@ -34,8 +34,6 @@ export class SceneNode {
   }
 
   /**
-   * TODO (Part B): set this.world from parentWorld and this.local, then
-   * update every child recursively. Called on the root with no argument.
    * @param {Float32Array} [parentWorld]  world matrix of the parent (identity for the root)
    */
   updateWorld(parentWorld) {
