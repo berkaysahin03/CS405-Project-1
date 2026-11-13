@@ -103,53 +103,9 @@ async function main() {
   }
 
   function updatePoint(/** @type {DragInfo} */ e) {
-    let [right, up, forward] = mat4.computeCameraBasis(
-      /** @type {vec3.Vec3} */ (camera.eye),
-      /** @type {vec3.Vec3} */ (camera.target),
-      /** @type {vec3.Vec3} */ (camera.up)
-    )
-    forward = [-forward[0], -forward[1], -forward[2]]
-
-    const curve = scene.curve
-
-    let direction = [0, 0, 0]
-    let origin = [0, 0, 0]
-    let k = Math.tan(camera.fovY / 2)
-    let aspect = canvas.width / canvas.height
-    const H = camera.orthoHeight / 2;
-    const W = H * aspect
-
-    if (camera.projection == "orthographic") {
-      origin = curves.add(
-        camera.eye,
-        curves.add(
-          curves.scale(right, e.ndc[0] * W),
-          curves.scale(up, e.ndc[1] * H)
-        )
-      )
-      direction = forward
-    } else {
-      origin = camera.eye
-      direction = curves.add(
-        curves.add(
-          forward,
-          curves.scale(right, e.ndc[0] * k * aspect),
-        ),
-        curves.scale(up, e.ndc[1] * k)
-      )
-    }
-
-    if (Math.abs(direction[2]) < 1e-6)
-      return
-
-    let t = -origin[2] / direction[2]
-    if (t < 0)
-      return
-
-    let x = origin[0] + t * direction[0]
-    let y = origin[1] + t * direction[1]
-
-    curve.movePoint(dragIndex, /** @type {[number, number]} */ (curve.fromWorld([x, y]).map(v => curves.clamp(v, 0, 1))))
+    let p = rayZIntersect(camera, canvas.width / canvas.height, e.ndc)
+    if (p)
+      scene.curve.movePoint(dragIndex, /** @type {[number, number]} */ (scene.curve.fromWorld(p).map(v => curves.clamp(v, 0, 1))))
   }
 
   attachPointer(canvas, {
@@ -205,7 +161,12 @@ async function main() {
     scene.update(dt, now / 1000);
 
     const aspect = canvas.width / canvas.height;
-    const vp = viewProjection(camera, aspect, painting.aspect);
+    if (view === "inspection") {
+      let vertices = buildFrustum(camera, aspect)
+      viewWireframe.setVertices(vertices)
+    }
+
+    const vp = viewProjection(view === "main" ? camera : inspectionCamera, aspect, painting.aspect);
     camStatus.set(vp.fallback
       ? `PLACEHOLDER view (no camera yet)\n${vp.missing}`
       : `camera: P · V (${camera.projection})`);
